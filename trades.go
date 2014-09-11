@@ -97,8 +97,8 @@ type Trade struct {
 
 // String implements the Stringer interface.
 func (t Trade) String() string {
-	return fmt.Sprintf("Trade{TradeId: %d, Side: %s, Units: %d, Instrument: %s}", t.TradeId,
-		t.Side, t.Units, t.Instrument)
+	return fmt.Sprintf("Trade{TradeId: %d, Side: %s, Units: %d, Instrument: %s, Price: %f}",
+		t.TradeId, t.Side, t.Units, t.Instrument, t.Price)
 }
 
 type Trades []Trade

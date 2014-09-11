@@ -12,3 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package oanda_test
+
+import (
+	"oanda"
+
+	"gopkg.in/check.v1"
+)
+
+func (ts *TestSuite) TestPositionsApi(c *check.C) {
+	t, err := ts.c.NewTrade(oanda.Ts_Buy, 1, "eur_usd")
+	c.Assert(err, check.IsNil)
+	c.Log(t)
+
+	positions, err := ts.c.Positions()
+	c.Assert(err, check.IsNil)
+	c.Log(positions)
+	c.Assert(positions, check.HasLen, 1)
+	c.Assert(positions[0].Side, check.Equals, t.Side)
+	c.Assert(positions[0].Units, check.Equals, t.Units)
+	c.Assert(positions[0].AvgPrice, check.Equals, t.Price)
+
+	p, err := ts.c.Position("eur_usd")
+	c.Assert(err, check.IsNil)
+	c.Log(p)
+	c.Assert(p.Side, check.Equals, t.Side)
+	c.Assert(p.Units, check.Equals, t.Units)
+	c.Assert(p.AvgPrice, check.Equals, t.Price)
+
+	cpr, err := ts.c.ClosePosition("eur_usd")
+	c.Assert(err, check.IsNil)
+	c.Log(cpr)
+	c.Assert(cpr.TranIds, check.HasLen, 2)
+	c.Assert(cpr.TotalUnits, check.Equals, 1)
+	c.Assert(cpr.Instrument, check.Equals, "EUR_USD")
+
+	positions, err = ts.c.Positions()
+	c.Assert(err, check.IsNil)
+	c.Assert(positions, check.HasLen, 0)
+}
+
+func (ts *TestSuite) TestNonexistingPosition(c *check.C) {
+	_, err := ts.c.Position("eur_gbp")
+	c.Assert(err, check.NotNil)
+
+	apiErr, ok := err.(*oanda.ApiError)
+	c.Assert(ok, check.Equals, true)
+	c.Assert(apiErr.Code, check.Equals, 14)
+}

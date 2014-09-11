@@ -15,6 +15,7 @@ package oanda
 
 import (
 	"fmt"
+	"strings"
 )
 
 type (
@@ -62,6 +63,7 @@ func (c *Client) Positions() (Positions, error) {
 
 // Position returns the position for an account and instrument.
 func (c *Client) Position(instrument string) (*Position, error) {
+	instrument = strings.ToUpper(instrument)
 	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/positions/%s", c.AccountId, instrument), "api")
 	ctx, err := c.newContext("GET", u, nil)
 	if err != nil {
@@ -77,7 +79,8 @@ func (c *Client) Position(instrument string) (*Position, error) {
 
 // ClosePosition closes an existing position.
 func (c *Client) ClosePosition(instrument string) (*PositionCloseResponse, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/%s", c.AccountId, instrument), "api")
+	instrument = strings.ToUpper(instrument)
+	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/positions/%s", c.AccountId, instrument), "api")
 	ctx, err := c.newContext("DELETE", u, nil)
 	if err != nil {
 		return nil, err
