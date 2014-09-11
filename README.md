@@ -1,5 +1,7 @@
 ## OANDA for Go
 
+[![Build Status](https://travis-ci.org/santegoeds/oanda.svg?branch=master)](https://travis-ci.org/santegoeds/oanda)
+
 [OANDA](http://www.oanda.com) is a technology company that provides internet based forex trading and currency information. [OANDA](http://www.oanda.com) provide access to their services via a free 
 REST API.
 
