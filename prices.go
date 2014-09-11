@@ -264,7 +264,9 @@ func (ps *pricesServer) dispatchTicks() error {
 		rawMessage := make(map[string]json.RawMessage)
 		err := dec.Decode(&rawMessage)
 		if err != nil {
-			return err
+			// Likely failure is because the response stream is closed; an expected error if
+			// the pricesServer has been stopped.
+			return nil
 		}
 
 		ps.stallTimer.Reset(ps.StallTimeout)
