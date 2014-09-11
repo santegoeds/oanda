@@ -16,8 +16,9 @@ package oanda_test
 import (
 	"time"
 
+	"github.com/santegoeds/oanda"
+
 	"gopkg.in/check.v1"
-	"oanda"
 )
 
 func (ts *TestSuite) TestOrderApi(c *check.C) {

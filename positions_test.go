@@ -14,7 +14,7 @@
 package oanda_test
 
 import (
-	"oanda"
+	"github.com/santegoeds/oanda"
 
 	"gopkg.in/check.v1"
 )
