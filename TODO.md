@@ -10,5 +10,5 @@
 
 ## Testing
 
-* Test Position API.
+* Test Transactions API.
 * Test error conditions.
