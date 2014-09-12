@@ -1,5 +1,7 @@
 ## Functionality
 
+* Add support for sessions to streaming Api's.
+* Refactor Transaction Api.
 * Event Streaming
 * Forex Labs
     * Orderbook
@@ -12,3 +14,8 @@
 
 * Test Transactions API.
 * Test error conditions.
+
+## Documentation
+
+* Improve & complete documentation.
+* Provide example usages.

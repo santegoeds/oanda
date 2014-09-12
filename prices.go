@@ -39,15 +39,16 @@ func (p *PriceTick) Spread() float64 {
 	return p.Ask - p.Bid
 }
 
-// PollPrices returns the latest PricePoint for instruments.
+// PollPrices returns the latest PriceTick for instruments.
 func (c *Client) PollPrices(instrument string, instruments ...string) (
 	map[string]PriceTick, error) {
 
 	return c.PollPricesSince(time.Time{}, instrument, instruments...)
 }
 
-// PollPricesSince returns the PricePoints for instruments.  Instruments whose prices were not
-// updated since the requested time.Time are excluded.
+// PollPricesSince returns the PriceTicks for instruments.  If since is not the zero time
+// instruments whose prices were not updated since the requested time.Time are excluded from the
+// result.
 func (c *Client) PollPricesSince(since time.Time, instrument string, instruments ...string) (
 	map[string]PriceTick, error) {
 
@@ -81,8 +82,8 @@ func (ppc *PollPricesContext) Poll() (map[string]PriceTick, error) {
 	return prices, nil
 }
 
-// NewPollPricesContext creates a new context to repeatedly poll for the PricePoint updates using
-// the same options.
+// NewPollPricesContext creates a context to repeatedly poll for PriceTicks using the same
+// args.
 func (c *Client) NewPollPricesContext(since time.Time, instrument string, instruments ...string) (
 	*PollPricesContext, error) {
 
@@ -132,7 +133,7 @@ type pricesServer struct {
 	isStopped   bool
 }
 
-// NewPricesServer creates a pricesServer to process price updates from the Oanda server.
+// NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
 func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pricesServer, error) {
 	instruments = append(instruments, instrument)
 	for i := range instruments {
@@ -160,7 +161,7 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 	return &ps, nil
 }
 
-// Run connects to the oanda server and dispatches PriceTicks to handleFn. A seperate handleFun
+// Run connects to the oanda server and dispatches PriceTicks to handleFn. A separate handleFun
 // go-routine is started for each of the instruments.
 func (ps *pricesServer) Run(handleFn TickHandleFunc) error {
 	err := ps.init()
@@ -195,7 +196,7 @@ func (ps *pricesServer) init() error {
 	return nil
 }
 
-// cleanup makes sure that any times are stopped and that the connection to the Oanda server
+// cleanup makes sure that any timers are stopped and that the connection to the Oanda server
 // is closed.
 func (ps *pricesServer) cleanup() {
 	ps.stallTimer.Stop()
@@ -217,7 +218,8 @@ func (ps *pricesServer) startTickHandlers(handleFn TickHandleFunc) {
 	}
 }
 
-// connect issues a GET request and receives the http.Response object.
+// connect issues a GET request and receives the http.Response object which is stores on the
+// pricesServer instance.
 func (ps *pricesServer) connect() {
 	ps.disconnect()
 	var err error
@@ -251,7 +253,7 @@ func (ps *pricesServer) disconnect() {
 }
 
 // dispatchTicks reads the chunked response from the Oanda server, decodes ticks and dispatches
-// them to the handler function.
+// them to the apropriate handler function.
 func (ps *pricesServer) dispatchTicks() error {
 	var strm io.Reader = ps.rsp.Body
 	if debug {
@@ -294,7 +296,7 @@ func (ps *pricesServer) dispatchTicks() error {
 			}
 		} else if msgData, ok = rawMessage["heartbeat"]; ok {
 
-			// No need to process heartbeats
+			// No need to process heartbeats.
 
 		} else if msgData, ok = rawMessage["disconnect"]; ok {
 
@@ -307,8 +309,8 @@ func (ps *pricesServer) dispatchTicks() error {
 		} else if msgData, ok = rawMessage["code"]; ok {
 
 			// The Oanda server returned an error in a non-streaming format.  This is likely the
-			// result of an invalid request parameter so reconnection will not resolve the error so
-			// the server is stopped before returning the error.
+			// result of an invalid request parameter so reconnecting will not resolve the error.
+			// The server is therefore stopped before the error is returned.
 			apiError := ApiError{}
 			if err = json.Unmarshal(msgData, &apiError.Code); err != nil {
 				return err
