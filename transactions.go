@@ -62,6 +62,7 @@ type tranUnionData struct {
 	OrderId                  int                  `json:"orderId"`
 	TradeOpened              *tranTradeDetailData `json:"tradeOpened"`
 	TradeReduced             *tranTradeDetailData `json:"tradeReduced"`
+	HomeCurrency             string               `json:"homeCurrency"`
 }
 
 type transaction struct{ data tranUnionData }
@@ -88,6 +89,13 @@ func (t *transaction) String() string {
 
 // Type returns the transaction type.
 func (t *transaction) Type() string { return t.data.Type }
+
+func (t *transaction) AsAccountCreate() (*tranAccountCreate, error) {
+	if t.Type() == "CREATE" {
+		return &tranAccountCreate{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsAccountCreate is invalid for type %s", t.Type())
+}
 
 func (t *transaction) AsTradeCreate() (*tranTradeCreate, error) {
 	switch t.Type() {
@@ -181,6 +189,14 @@ func (t *transaction) AsFee() (*tranFee, error) {
 	}
 	return nil, fmt.Errorf("conversion AsFee is invalid for type %s", t.Type())
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CREATE
+
+type tranAccountCreate struct{ *transaction }
+
+func (t *tranAccountCreate) HomeCurrency() string { return t.data.HomeCurrency }
+func (t *tranAccountCreate) Reason() string       { return t.data.Reason }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MARKET_ORDER_CREATE

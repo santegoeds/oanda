@@ -12,3 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package oanda_test
+
+import (
+	"github.com/santegoeds/oanda"
+
+	"gopkg.in/check.v1"
+)
+
+type TestTranSuite struct {
+	c *oanda.Client
+}
+
+var _ = check.Suite(&TestTranSuite{})
+
+func (ts *TestTranSuite) SetUpSuite(c *check.C) {
+	var err error
+	ts.c, err = newSandboxClientWithAccount()
+	c.Assert(err, check.IsNil)
+}
+
+func (ts *TestSuite) TestTransactionApi(c *check.C) {
+	trans, err := ts.c.Transactions()
+	c.Assert(err, check.IsNil)
+	c.Assert(trans, check.HasLen, 2)
+
+	m := make(map[string]bool)
+	for _, tran := range trans {
+		m[tran.Type()] = true
+
+		switch tran.Type() {
+		case "CREATE":
+			_, err = tran.AsAccountCreate()
+			c.Assert(err, check.IsNil)
+		case "TRANSFER_FUNDS":
+			_, err = tran.AsTransferFunds()
+			c.Assert(err, check.IsNil)
+		}
+	}
+
+	c.Log(m)
+
+	_, ok := m["CREATE"]
+	c.Assert(ok, check.Equals, true)
+
+	_, ok = m["TRANSFER_FUNDS"]
+	c.Assert(ok, check.Equals, true)
+}
