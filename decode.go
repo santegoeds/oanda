@@ -15,6 +15,7 @@ package oanda
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -41,67 +42,85 @@ func NewDecoder(r io.Reader) *jsonDecoder {
 	return &jsonDecoder{json.NewDecoder(r)}
 }
 
-func (dec *jsonDecoder) Decode(vp interface{}) error {
-	value := reflect.ValueOf(vp)
-	if value.Kind() != reflect.Ptr || value.IsNil() {
-		return fmt.Errorf("Decode argument is not a pointer or is nil")
+func (dec *jsonDecoder) Decode(vp interface{}) (err error) {
+	if err = dec.dec.Decode(vp); err != nil {
+		return
 	}
 
-	m := map[string]json.RawMessage{}
-	err := dec.dec.Decode(&m)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := m["code"]; ok {
-		apiError := &ApiError{}
-		if err = json.Unmarshal(m["code"], &apiError.Code); err != nil {
-			return err
-		}
-		if apiError.Code != 0 {
-			json.Unmarshal(m["message"], &apiError.Message)
-			json.Unmarshal(m["moreinfo"], &apiError.MoreInfo)
-			return apiError
-		}
-	}
-
-	value = value.Elem()
-	valueType := value.Type()
-
+	value := reflect.ValueOf(vp).Elem()
 	switch value.Kind() {
-	default:
-		return fmt.Errorf("invalid type %s; only struct and maps are supported", value.Kind())
-
 	case reflect.Struct:
-		for i := 0; i < value.NumField(); i++ {
-			fieldValue := value.Field(i)
-			fieldType := valueType.Field(i)
-
-			fieldName := fieldType.Tag.Get("json")
-			if fieldName == "" {
-				fieldName = fieldType.Name
-			}
-
-			jsonText, ok := m[fieldName]
-			if !ok {
-				continue
-			}
-
-			if err = json.Unmarshal(jsonText, fieldValue.Addr().Interface()); err != nil {
-				return err
-			}
-		}
-
+		err = apiErrorFromStruct(value)
 	case reflect.Map:
-		dstMap := *(vp.(*map[string]interface{}))
-		for k, v := range m {
-			var dstValue interface{}
-			if err = json.Unmarshal(v, &dstValue); err != nil {
-				return err
+		err = apiErrorFromMap(vp)
+	default:
+		err = errors.New("Unsupported map value type.")
+	}
+	return
+}
+
+func apiErrorFromStruct(value reflect.Value) error {
+	apiErr := value.FieldByName("ApiError")
+	if !apiErr.IsValid() {
+		return errors.New("struct does not embed an ApiError instance.")
+	}
+	if apiErr.Kind() != reflect.Struct {
+		return errors.New("Embedded ApiError field is not of type oanda.ApiError")
+	}
+	codeField := apiErr.FieldByName("Code")
+	if !codeField.IsValid() || codeField.Kind() != reflect.Int {
+		return errors.New("Embedded ApiError field is not of type oanda.ApiError")
+	}
+	// Not an error
+	if codeField.Int() == 0 {
+		return nil
+	}
+	// Return the embedded ApiError field as the error
+	return apiErr.Addr().Interface().(*ApiError)
+}
+
+func apiErrorFromMap(vp interface{}) error {
+	if imPtr, ok := vp.(*map[string]interface{}); ok {
+		if code, ok := (*imPtr)["code"]; ok {
+			apiErr := ApiError{}
+			if fcode, ok := code.(float64); !ok {
+				return fmt.Errorf("unexpected code type %v", code)
+			} else {
+				apiErr.Code = int(fcode)
 			}
-			dstMap[k] = dstValue
+			if str, ok := (*imPtr)["message"]; ok {
+				if apiErr.Message, ok = str.(string); !ok {
+					return fmt.Errorf("unexpected message type %v", str)
+				}
+			}
+			if str, ok := (*imPtr)["moreInfo"]; ok {
+				if apiErr.MoreInfo, ok = str.(string); !ok {
+					return fmt.Errorf("unexpected moreInfo type %v", str)
+				}
+			}
+			return &apiErr
 		}
+		return nil
 	}
 
-	return nil
+	if rmPtr, ok := vp.(*map[string]json.RawMessage); ok {
+		if data, ok := (*rmPtr)["code"]; ok {
+			apiErr := ApiError{}
+			if err := json.Unmarshal(data, &apiErr.Code); err != nil {
+				return err
+			}
+			if apiErr.Code != 0 {
+				if err := json.Unmarshal((*rmPtr)["message"], &apiErr.Message); err != nil {
+					return err
+				}
+				if err := json.Unmarshal((*rmPtr)["moreInfo"], &apiErr.MoreInfo); err != nil {
+					return err
+				}
+			}
+			return &apiErr
+		}
+		return nil
+	}
+
+	return errors.New("unsupported map type")
 }

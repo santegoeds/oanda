@@ -26,12 +26,8 @@ func (ts *TestSuite) TestOrderApi(c *check.C) {
 
 	o, err := ts.c.NewOrder(oanda.Ot_Limit, oanda.Ts_Buy, 2, "eur_usd", 0.75, expiry,
 		oanda.UpperBound(1.0), oanda.LowerBound(0.5))
-	if err != nil {
-		c.Error(err)
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log(o)
-
 	c.Assert(o.OrderId, check.Not(check.Equals), 0)
 	c.Assert(o.Expiry.UTC().Equal(expiry.Truncate(time.Second)), check.Equals, true)
 	c.Assert(o.Instrument, check.Equals, "EUR_USD")
@@ -46,10 +42,7 @@ func (ts *TestSuite) TestOrderApi(c *check.C) {
 	c.Assert(o.TrailingStop, check.Equals, 0.0)
 
 	dup, err := ts.c.Order(o.OrderId)
-	if err != nil {
-		c.Error(err)
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Assert(dup.OrderId, check.Equals, o.OrderId)
 	c.Assert(dup.Expiry.Equal(o.Expiry), check.Equals, true)
 	c.Assert(dup.Instrument, check.Equals, o.Instrument)
@@ -64,13 +57,8 @@ func (ts *TestSuite) TestOrderApi(c *check.C) {
 	c.Assert(dup.TrailingStop, check.Equals, o.TrailingStop)
 
 	orders, err := ts.c.Orders()
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log(orders)
-
 	c.Assert(orders, check.HasLen, 1)
 	c.Assert(orders[0].OrderId, check.Equals, o.OrderId)
 	c.Assert(orders[0].Expiry.Equal(o.Expiry), check.Equals, true)
@@ -85,26 +73,14 @@ func (ts *TestSuite) TestOrderApi(c *check.C) {
 	c.Assert(orders[0].TakeProfit, check.Equals, o.TakeProfit)
 	c.Assert(orders[0].TrailingStop, check.Equals, o.TrailingStop)
 
-	if o, err = ts.c.ModifyOrder(o.OrderId, oanda.Units(1)); err != nil {
-		c.Error(err)
-		return
-	}
-
+	o, err = ts.c.ModifyOrder(o.OrderId, oanda.Units(1))
+	c.Assert(err, check.IsNil)
 	c.Assert(o.Units, check.Equals, 1)
 
 	rsp, err := ts.c.CancelOrder(o.OrderId)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log("OrderCancelResponse:", rsp)
-
 	orders, err = ts.c.Orders()
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Assert(orders, check.HasLen, 0)
 }

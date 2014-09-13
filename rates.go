@@ -77,6 +77,7 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (
 	}
 
 	v := struct {
+		ApiError
 		Instruments []struct {
 			Instrument string `json:"instrument"`
 			InstrumentInfo
@@ -205,12 +206,15 @@ func (c *Client) MidpointCandles(instrument string, granularity Granularity,
 		return nil, err
 	}
 
-	candles := MidpointCandles{}
+	candles := struct {
+		ApiError
+		MidpointCandles
+	}{}
 	if _, err = ctx.Decode(&candles); err != nil {
 		return nil, err
 	}
 
-	return &candles, nil
+	return &candles.MidpointCandles, nil
 }
 
 // BidAskCandles returns historic price information for an instrument.
@@ -222,12 +226,15 @@ func (c *Client) BidAskCandles(instrument string, granularity Granularity,
 		return nil, err
 	}
 
-	candles := BidAskCandles{}
+	candles := struct {
+		ApiError
+		BidAskCandles
+	}{}
 	if _, err = ctx.Decode(&candles); err != nil {
 		return nil, err
 	}
 
-	return &candles, nil
+	return &candles.BidAskCandles, nil
 }
 
 func (c *Client) newCandlesContext(instrument string, granularity Granularity, candleFormat string,

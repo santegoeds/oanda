@@ -23,13 +23,8 @@ import (
 
 func (ts *TestSuite) TestPollPrices(c *check.C) {
 	prices, err := ts.c.PollPrices("EUR_USD", "EUR_GBP")
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log(prices)
-
 	c.Assert(prices, check.HasLen, 2)
 
 	for _, pi := range prices {
@@ -39,44 +34,28 @@ func (ts *TestSuite) TestPollPrices(c *check.C) {
 
 func (ts *TestSuite) TestPollPricesSince(c *check.C) {
 	prices, err := ts.c.PollPricesSince(time.Now().Add(-time.Hour), "eur_usd")
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Assert(prices, check.HasLen, 1)
 }
 
 func (ts *TestSuite) TestPollPricesContext(c *check.C) {
 	ctx, err := ts.c.NewPollPricesContext(time.Time{}, "eur_usd", "eur_gbp")
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, check.IsNil)
 
 	prices, err := ctx.Poll()
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, check.IsNil)
 	c.Log(prices)
 	c.Assert(prices, check.HasLen, 2)
 
 	prices, err = ctx.Poll()
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, check.IsNil)
 	c.Log(prices)
 	c.Assert(prices, check.HasLen, 2)
 }
 
 func (ts *TestSuite) TestPricesServer(c *check.C) {
 	ps, err := ts.c.NewPricesServer("eur_usd", "eur_gbp")
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, check.IsNil)
 
 	count := 0
 	err = ps.Run(func(instrument string, tick oanda.PriceTick) {
@@ -87,22 +66,15 @@ func (ts *TestSuite) TestPricesServer(c *check.C) {
 			ps.Stop()
 		}
 	})
-	if err != nil {
-		c.Error(err)
-	}
+	c.Assert(err, check.IsNil)
 }
 
 func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
 	ps, err := ts.c.NewPricesServer("gbp_eur")
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	err = ps.Run(func(in string, tick oanda.PriceTick) {
 		c.Fail()
 	})
-	c.Assert(err, check.Not(check.IsNil))
-
+	c.Assert(err, check.NotNil)
 	c.Log(err)
 }

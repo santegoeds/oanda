@@ -121,6 +121,7 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 	}
 
 	rspData := struct {
+		ApiError
 		Instrument  string    `json:"instrument"`
 		Time        time.Time `json:"time"`
 		Price       float64   `json:"price"`
@@ -153,11 +154,14 @@ func (c *Client) Order(orderId int) (*Order, error) {
 		return nil, err
 	}
 
-	o := Order{}
+	o := struct {
+		ApiError
+		Order
+	}{}
 	if _, err = ctx.Decode(&o); err != nil {
 		return nil, err
 	}
-	return &o, nil
+	return &o.Order, nil
 }
 
 type (
@@ -192,7 +196,8 @@ func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
 	u.RawQuery = q.Encode()
 
 	rspData := struct {
-		Orders []Order `json:"orders"`
+		ApiError
+		Orders Orders `json:"orders"`
 	}{}
 	ctx, err := c.newContext("GET", u, nil)
 	if err != nil {
@@ -201,7 +206,6 @@ func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
 	if _, err = ctx.Decode(&rspData); err != nil {
 		return nil, err
 	}
-
 	return rspData.Orders, nil
 }
 
@@ -263,12 +267,15 @@ func (c *Client) ModifyOrder(orderId int,
 		return nil, err
 	}
 
-	o := Order{}
+	o := struct {
+		ApiError
+		Order
+	}{}
 	if _, err = ctx.Decode(&o); err != nil {
 		return nil, err
 	}
 
-	return &o, nil
+	return &o.Order, nil
 }
 
 type CancelOrderResponse struct {
@@ -288,9 +295,12 @@ func (c *Client) CancelOrder(orderId int) (*CancelOrderResponse, error) {
 		return nil, err
 	}
 
-	cor := CancelOrderResponse{}
+	cor := struct {
+		ApiError
+		CancelOrderResponse
+	}{}
 	if _, err = ctx.Decode(&cor); err != nil {
 		return nil, err
 	}
-	return &cor, nil
+	return &cor.CancelOrderResponse, nil
 }

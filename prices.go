@@ -65,12 +65,12 @@ type PollPricesContext struct {
 
 func (ppc *PollPricesContext) Poll() (map[string]PriceTick, error) {
 	v := struct {
+		ApiError
 		Prices []struct {
 			Instrument string `json:"instrument"`
 			PriceTick
 		} `json:"prices"`
 	}{}
-
 	if _, err := ppc.ctx.Decode(&v); err != nil {
 		return nil, err
 	}
@@ -261,13 +261,21 @@ func (ps *pricesServer) dispatchTicks() error {
 		strm = io.TeeReader(strm, os.Stderr)
 	}
 
-	dec := json.NewDecoder(strm)
+	dec := NewDecoder(strm)
 	for !ps.isStopped {
 		rawMessage := make(map[string]json.RawMessage)
 		err := dec.Decode(&rawMessage)
 		if err != nil {
-			// Likely failure is because the response stream is closed; an expected error if
-			// the pricesServer has been stopped.
+			// Server returned an ApiError instead of one of the documented Streaming JSON objects.
+			// The likely reason is that the GET arguments were invalid so reconnecting won't
+			// resolve the issue.  Therefore, stop the server before returning the error.
+			if _, ok := err.(*ApiError); ok {
+				ps.Stop()
+				return err
+			}
+
+			// The likely failure is that the http.Response.Body was closed.  Ignore the error
+			// and return from the method to reconnect if required.
 			return nil
 		}
 
@@ -275,7 +283,6 @@ func (ps *pricesServer) dispatchTicks() error {
 
 		msgData, ok := rawMessage["tick"]
 		if ok {
-
 			// Dispatch Tick.
 			tick := tickPool.Get().(*instrumentTick)
 			if err = json.Unmarshal(msgData, tick); err != nil {
@@ -301,32 +308,11 @@ func (ps *pricesServer) dispatchTicks() error {
 		} else if msgData, ok = rawMessage["disconnect"]; ok {
 
 			// Notification that the server is about to disconnect.
-			apiError := ApiError{}
-			if err = json.Unmarshal(msgData, &apiError); err != nil {
+			apiErr := ApiError{}
+			if err = json.Unmarshal(msgData, &apiErr); err != nil {
 				return err
 			}
-			return apiError
-		} else if msgData, ok = rawMessage["code"]; ok {
-
-			// The Oanda server returned an error in a non-streaming format.  This is likely the
-			// result of an invalid request parameter so reconnecting will not resolve the error.
-			// The server is therefore stopped before the error is returned.
-			apiError := ApiError{}
-			if err = json.Unmarshal(msgData, &apiError.Code); err != nil {
-				return err
-			}
-			if msgData, ok = rawMessage["message"]; ok {
-				if err = json.Unmarshal(msgData, &apiError.Message); err != nil {
-					return err
-				}
-			}
-			if msgData, ok = rawMessage["moreInfo"]; ok {
-				if err = json.Unmarshal(msgData, &apiError.MoreInfo); err != nil {
-					return err
-				}
-			}
-			ps.Stop()
-			return apiError
+			return apiErr
 		}
 	}
 	return nil

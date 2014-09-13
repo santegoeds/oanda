@@ -19,12 +19,7 @@ import (
 
 func (ts *TestSuite) TestInstruments(c *check.C) {
 	instruments, err := ts.c.Instruments(nil, nil)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log(instruments)
-
 	c.Assert(instruments, check.Not(check.HasLen), 0)
 }

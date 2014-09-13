@@ -23,13 +23,8 @@ import (
 
 func (ts *TestSuite) TestTradeApi(c *check.C) {
 	t, err := ts.c.NewTrade(oanda.Ts_Buy, 2, "eur_usd", oanda.StopLoss(0.5), oanda.TakeProfit(3.0))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log(t)
-
 	c.Assert(t.TradeId, check.Not(check.Equals), 0)
 	c.Assert(t.Price, check.Not(check.Equals), 0.0)
 	c.Assert(t.Instrument, check.Equals, "EUR_USD")
@@ -41,11 +36,7 @@ func (ts *TestSuite) TestTradeApi(c *check.C) {
 	c.Assert(t.Time.Before(time.Now()), check.Equals, true)
 
 	dup, err := ts.c.Trade(t.TradeId)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Assert(dup.TradeId, check.Equals, t.TradeId)
 	c.Assert(dup.Price, check.Equals, t.Price)
 	c.Assert(dup.Instrument, check.Equals, t.Instrument)
@@ -57,19 +48,11 @@ func (ts *TestSuite) TestTradeApi(c *check.C) {
 	c.Assert(dup.Time.Equal(t.Time), check.Equals, true)
 
 	t, err = ts.c.ModifyTrade(t.TradeId, oanda.StopLoss(0.75))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Assert(t.StopLoss, check.Equals, 0.75)
 
 	trades, err := ts.c.Trades()
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Assert(trades, check.HasLen, 1)
 	c.Assert(trades[0].TradeId, check.Equals, t.TradeId)
 	c.Assert(trades[0].Price, check.Equals, t.Price)
@@ -82,17 +65,10 @@ func (ts *TestSuite) TestTradeApi(c *check.C) {
 	c.Assert(trades[0].Time.Equal(t.Time), check.Equals, true)
 
 	rsp, err := ts.c.CloseTrade(t.TradeId)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log(rsp)
 
 	trades, err = ts.c.Trades()
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, check.IsNil)
 	c.Assert(trades, check.HasLen, 0)
 }

@@ -134,6 +134,7 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 	}
 
 	rspData := struct {
+		ApiError
 		Instrument   string    `json:"instrument"`
 		Time         time.Time `json:"time"`
 		Price        float64   `json:"price"`
@@ -162,12 +163,15 @@ func (c *Client) Trade(tradeId int) (*Trade, error) {
 		return nil, err
 	}
 
-	t := Trade{}
+	t := struct {
+		ApiError
+		Trade
+	}{}
 	if _, err = ctx.Decode(&t); err != nil {
 		return nil, err
 	}
 
-	return &t, nil
+	return &t.Trade, nil
 }
 
 // Trades returns a list of open trades that match the optional arguments.  Supported
@@ -186,6 +190,7 @@ func (c *Client) Trades(args ...TradesArg) (Trades, error) {
 	}
 
 	rspData := struct {
+		ApiError
 		Trades Trades `json:"trades"`
 	}{}
 
@@ -213,12 +218,15 @@ func (c *Client) ModifyTrade(tradeId int,
 		return nil, err
 	}
 
-	t := Trade{}
+	t := struct {
+		ApiError
+		Trade
+	}{}
 	if _, err = ctx.Decode(&t); err != nil {
 		return nil, err
 	}
 
-	return &t, nil
+	return &t.Trade, nil
 }
 
 type CloseTradeResponse struct {
@@ -238,10 +246,13 @@ func (c *Client) CloseTrade(tradeId int) (*CloseTradeResponse, error) {
 		return nil, err
 	}
 
-	ctr := CloseTradeResponse{}
+	ctr := struct {
+		ApiError
+		CloseTradeResponse
+	}{}
 	if _, err = ctx.Decode(&ctr); err != nil {
 		return nil, err
 	}
 
-	return &ctr, nil
+	return &ctr.CloseTradeResponse, nil
 }

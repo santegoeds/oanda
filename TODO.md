@@ -1,5 +1,6 @@
 ## Functionality
 
+* Add support for an optional handler to process Heartbeats.
 * Add support for sessions to streaming Api's.
 * Refactor Transaction Api.
 * Event Streaming

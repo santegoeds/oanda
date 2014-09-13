@@ -14,6 +14,7 @@
 package oanda_test
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/santegoeds/oanda"
@@ -21,37 +22,37 @@ import (
 	"gopkg.in/check.v1"
 )
 
-type DecodeSuite struct{}
+type TestDecodeSuite struct{}
 
-var _ = check.Suite(&DecodeSuite{})
+var _ = check.Suite(&TestDecodeSuite{})
 
 const (
-	okData = `
-        {
+	okData = `{
             "A": "A", 
             "B": 1, 
             "C": 2, 
             "x": "X",
-            "Nested": {
-                "E": 3
-            }
-
-        }
-        `
-	errorData = `
-        {
+            "Nested": { "E": 3 }
+        }`
+	errorData = `{
             "A": "A", 
             "B": 1, 
             "C": 1, 
             "x": "X", 
             "code": 1, 
             "message": "Test Message",
-            "moreinfo": "More Info"
-        }
-        `
+            "moreInfo": "More Info"
+        }`
+	partialErrorData = `{
+            "A": "A",
+            "B": 1,
+            "C": 1,
+            "x": "X",
+            "code": 1
+        }`
 )
 
-type DecodeStruct struct {
+type StructReceiver struct {
 	A      string
 	B      float64
 	C      int
@@ -61,34 +62,41 @@ type DecodeStruct struct {
 	}
 }
 
-// TestDecodeStruct verifies that a Json byte string can be Decoded into a struct.
-func (s *DecodeSuite) TestDecodeStruct(c *check.C) {
-	r := strings.NewReader(okData)
-	dec := oanda.NewDecoder(r)
+type StructReceiverWithApiError struct {
+	StructReceiver
+	oanda.ApiError
+}
 
-	v := DecodeStruct{}
-	if err := dec.Decode(&v); err != nil {
-		c.Error(err)
-		return
-	}
+func (s *TestDecodeSuite) TestDecodeStructReceiver(c *check.C) {
+	dec := oanda.NewDecoder(strings.NewReader(okData))
 
-	c.Assert(v.A, check.Equals, "A")
-	c.Assert(v.B, check.Equals, 1.0)
-	c.Assert(v.C, check.Equals, 2)
-	c.Assert(v.D, check.Equals, "X")
-	c.Assert(v.Nested.E, check.Equals, 3)
+	srw := StructReceiverWithApiError{}
+	err := dec.Decode(&srw)
+	c.Assert(err, check.IsNil)
+
+	c.Assert(srw.A, check.Equals, "A")
+	c.Assert(srw.B, check.Equals, 1.0)
+	c.Assert(srw.C, check.Equals, 2)
+	c.Assert(srw.D, check.Equals, "X")
+	c.Assert(srw.Nested.E, check.Equals, 3)
+
+	// Verify that an error is returned if the receiver struct does not have a Code field.
+	dec = oanda.NewDecoder(strings.NewReader(okData))
+	sr := StructReceiver{}
+	err = dec.Decode(&sr)
+	c.Assert(err, check.NotNil)
+
+	_, ok := err.(*oanda.ApiError)
+	c.Assert(ok, check.Equals, false)
 }
 
 // TestDecodeMap verifies that a Json byte string can be Decoded into a map[string]interface{}
-func (s *DecodeSuite) TestDecodeMap(c *check.C) {
-	r := strings.NewReader(okData)
-	dec := oanda.NewDecoder(r)
-
+func (s *TestDecodeSuite) TestDecodeInterfaceMap(c *check.C) {
+	dec := oanda.NewDecoder(strings.NewReader(okData))
 	m := make(map[string]interface{}, 0)
-	if err := dec.Decode(&m); err != nil {
-		c.Error(err)
-		return
-	}
+	err := dec.Decode(&m)
+	c.Assert(err, check.IsNil)
+	c.Log(m)
 
 	c.Assert(m["A"], check.Equals, "A")
 	c.Assert(m["B"], check.Equals, 1.0)
@@ -103,50 +111,42 @@ func (s *DecodeSuite) TestDecodeMap(c *check.C) {
 	c.Assert(nm["E"], check.Equals, 3.0)
 }
 
-// TestDecodeStructWithApiError verifies that decoding a json string that includes Oanda error
-// returns an ApiError if the json string is decoded into a struct.
-func (s *DecodeSuite) TestDecodeStructWithApiError(c *check.C) {
-	r := strings.NewReader(errorData)
-	dec := oanda.NewDecoder(r)
+func (s *TestDecodeSuite) TestDecodeRawMessageMap(c *check.C) {
+	dec := oanda.NewDecoder(strings.NewReader(okData))
+	m := make(map[string]json.RawMessage)
+	err := dec.Decode(&m)
+	c.Assert(err, check.IsNil)
 
-	v := DecodeStruct{}
-	err := dec.Decode(&v)
-	if err == nil {
-		c.Error("Expected Decode to return oanda.ApiError")
-		return
-	}
+	c.Log(m)
 
-	apiError, ok := err.(*oanda.ApiError)
-	if !ok {
-		c.Error("Expected error as ApiError")
-		return
-	}
-
-	c.Assert(apiError.Code, check.Equals, 1)
-	c.Assert(apiError.Message, check.Equals, "Test Message")
-	c.Assert(apiError.MoreInfo, check.Equals, "More Info")
+	c.Assert(string(m["A"]), check.Equals, `"A"`)
+	c.Assert(string(m["B"]), check.Equals, "1")
+	c.Assert(string(m["C"]), check.Equals, "2")
+	c.Assert(string(m["x"]), check.Equals, `"X"`)
+	c.Assert(string(m["Nested"]), check.Equals, `{ "E": 3 }`)
 }
 
-// TestDecodeMapWithApiError verifies that decoding a json string that includes an Oanda error
-// returns an ApiError if the json string is decoded into a map[string]interface{}
-func (s *DecodeSuite) TestDecodeMapWithApiError(c *check.C) {
+func (s *TestDecodeSuite) TestDecodeApiErrorFromJson(c *check.C) {
+	sr := StructReceiverWithApiError{}
+	testDecodeErrorFromJson(&sr, c)
+
+	im := make(map[string]interface{})
+	testDecodeErrorFromJson(&im, c)
+
+	rm := make(map[string]json.RawMessage)
+	testDecodeErrorFromJson(&rm, c)
+}
+
+func testDecodeErrorFromJson(vp interface{}, c *check.C) {
 	r := strings.NewReader(errorData)
 	dec := oanda.NewDecoder(r)
+	err := dec.Decode(vp)
 
-	m := make(map[string]interface{})
-	err := dec.Decode(&m)
-	if err == nil {
-		c.Error("Expected Decode to return oanda.ApiError")
-		return
-	}
+	c.Assert(err, check.NotNil)
 
-	apiError, ok := err.(*oanda.ApiError)
-	if !ok {
-		c.Error("Expected error as ApiError")
-		return
-	}
-
-	c.Assert(apiError.Code, check.Equals, 1)
-	c.Assert(apiError.Message, check.Equals, "Test Message")
-	c.Assert(apiError.MoreInfo, check.Equals, "More Info")
+	apiErr, ok := err.(*oanda.ApiError)
+	c.Assert(ok, check.Equals, true)
+	c.Assert(apiErr.Code, check.Equals, 1)
+	c.Assert(apiErr.Message, check.Equals, "Test Message")
+	c.Assert(apiErr.MoreInfo, check.Equals, "More Info")
 }

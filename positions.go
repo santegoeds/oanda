@@ -53,6 +53,7 @@ func (c *Client) Positions() (Positions, error) {
 	}
 
 	rspData := struct {
+		ApiError
 		Positions Positions `json:"positions"`
 	}{}
 	if _, err = ctx.Decode(&rspData); err != nil {
@@ -70,11 +71,14 @@ func (c *Client) Position(instrument string) (*Position, error) {
 		return nil, err
 	}
 
-	p := Position{}
+	p := struct {
+		ApiError
+		Position
+	}{}
 	if _, err := ctx.Decode(&p); err != nil {
 		return nil, err
 	}
-	return &p, nil
+	return &p.Position, nil
 }
 
 // ClosePosition closes an existing position.
@@ -86,9 +90,12 @@ func (c *Client) ClosePosition(instrument string) (*PositionCloseResponse, error
 		return nil, err
 	}
 
-	pcr := PositionCloseResponse{}
+	pcr := struct {
+		ApiError
+		PositionCloseResponse
+	}{}
 	if _, err = ctx.Decode(&pcr); err != nil {
 		return nil, err
 	}
-	return &pcr, nil
+	return &pcr.PositionCloseResponse, nil
 }

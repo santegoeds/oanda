@@ -32,10 +32,7 @@ var _ = check.Suite(&TestSuite{})
 func (ts *TestSuite) SetUpSuite(c *check.C) {
 	sbClient := oanda.NewSandboxClient()
 	accountId, err := sbClient.NewAccount()
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, check.IsNil)
 	ts.c = sbClient.Client
 	ts.c.AccountId = accountId
 	return
@@ -43,13 +40,8 @@ func (ts *TestSuite) SetUpSuite(c *check.C) {
 
 func (ts *TestSuite) TestAccount(c *check.C) {
 	acc, err := ts.c.Account(ts.c.AccountId)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Log("Account:", acc)
-
 	c.Assert(acc.AccountId, check.Not(check.Equals), 0)
 	c.Assert(acc.Name, check.Equals, "Primary")
 	c.Assert(acc.Currency, check.Equals, "USD")
@@ -57,13 +49,8 @@ func (ts *TestSuite) TestAccount(c *check.C) {
 
 func (ts *TestSuite) TestAccounts(c *check.C) {
 	accs, err := ts.c.Accounts()
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
+	c.Assert(err, check.IsNil)
 	c.Logf("Accounts (%d): %v", len(accs), accs)
-
 	c.Assert(accs, check.HasLen, 1)
 	c.Assert(accs[0].Name, check.Equals, "Primary")
 	c.Assert(accs[0].Currency, check.Equals, "USD")

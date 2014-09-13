@@ -49,6 +49,7 @@ func (c *Client) Accounts() ([]Account, error) {
 	}
 
 	v := struct {
+		ApiError
 		Accounts []Account `json:"accounts"`
 	}{}
 
@@ -66,11 +67,14 @@ func (c *Client) Account(accountId int) (*Account, error) {
 		return nil, err
 	}
 
-	acc := Account{}
+	acc := struct {
+		ApiError
+		Account
+	}{}
 	if _, err = ctx.Decode(&acc); err != nil {
 		return nil, err
 	}
-	return &acc, nil
+	return &acc.Account, nil
 }
 
 // CreateAccount creates a new test account in the Oanda Sandbox environment.
@@ -81,6 +85,7 @@ func (c *SandboxClient) NewAccount() (int, error) {
 	}
 
 	v := struct {
+		ApiError
 		Username  string `json:"username"`
 		Password  string `json:"password"`
 		AccountId int    `json:"accountId"`
