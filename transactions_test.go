@@ -57,4 +57,13 @@ func (ts *TestSuite) TestTransactionApi(c *check.C) {
 
 	_, ok = m["TRANSFER_FUNDS"]
 	c.Assert(ok, check.Equals, true)
+
+	tran, err := ts.c.Transaction(trans[0].TranId())
+	c.Assert(err, check.IsNil)
+	c.Log(tran)
+	c.Assert(tran.Type(), check.Equals, "TRANSFER_FUNDS")
+
+	tfTran, err := tran.AsTransferFunds()
+	c.Assert(err, check.NotNil)
+	c.Assert(tfTran.Amount(), check.Equals, 10000.0)
 }

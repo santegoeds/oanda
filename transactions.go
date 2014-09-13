@@ -37,7 +37,7 @@ func (td *tranTradeDetail) Units() int        { return td.data.Units }
 func (td *tranTradeDetail) Pl() float64       { return td.data.Pl }
 func (td *tranTradeDetail) Interest() float64 { return td.data.Interest }
 
-type tranUnionData struct {
+type tranData struct {
 	TranId                   int                  `json:"id"`
 	AccountId                int                  `json:"accountId"`
 	Time                     time.Time            `json:"time"`
@@ -65,7 +65,7 @@ type tranUnionData struct {
 	HomeCurrency             string               `json:"homeCurrency"`
 }
 
-type transaction struct{ data tranUnionData }
+type transaction struct{ data tranData }
 
 // TranId returns the transaction id for the transaction.
 func (t *transaction) TranId() int { return t.data.TranId }
