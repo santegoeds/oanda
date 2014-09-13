@@ -20,149 +20,370 @@ import (
 	"time"
 )
 
-type Transaction struct {
-	TranId    int
-	AccountId int
-	Time      time.Time
-	Type      string
-	attrs     tranAttrs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Unified transaction
+
+type tranTradeDetailData struct {
+	TradeId  int     `json:"id"`
+	Units    int     `json:"units"`
+	Pl       float64 `json:"pl"`
+	Interest float64 `json:"interest"`
 }
 
-type TradeData struct {
-	TradeId  int
-	Units    int
-	Pl       float64
-	Interest float64
+type tranTradeDetail struct{ data *tranTradeDetailData }
+
+func (td *tranTradeDetail) TradeId() int      { return td.data.TradeId }
+func (td *tranTradeDetail) Units() int        { return td.data.Units }
+func (td *tranTradeDetail) Pl() float64       { return td.data.Pl }
+func (td *tranTradeDetail) Interest() float64 { return td.data.Interest }
+
+type tranData struct {
+	TranId                   int                  `json:"id"`
+	AccountId                int                  `json:"accountId"`
+	Time                     time.Time            `json:"time"`
+	Type                     string               `json:"type"`
+	Instrument               string               `json:"instrument"`
+	Side                     string               `json:"side"`
+	Units                    int                  `json:"units"`
+	Price                    float64              `json:"price"`
+	Expiry                   time.Time            `json:"expiry"`
+	Reason                   string               `json:"reason"`
+	LowerBound               float64              `json:"lowerBound"`
+	UpperBound               float64              `json:"upperBound"`
+	TakeProfitPrice          float64              `json:"takeProfitPrice"`
+	StopLossPrice            float64              `json:"stopLossPrice"`
+	TrailingStopLossDistance float64              `json:"trailingStopLossDistance"`
+	Pl                       float64              `json:"pl"`
+	Interest                 float64              `json:"interest"`
+	AccountBalance           float64              `json:"accountBalance"`
+	Rate                     float64              `json:"rate"`
+	Amount                   float64              `json:"amount"`
+	TradeId                  int                  `json:"tradeId"`
+	OrderId                  int                  `json:"orderId"`
+	TradeOpened              *tranTradeDetailData `json:"tradeOpened"`
+	TradeReduced             *tranTradeDetailData `json:"tradeReduced"`
+	HomeCurrency             string               `json:"homeCurrency"`
 }
 
-type (
-	MinId        int
-	Transactions []Transaction
-	tranAttrs    map[string]interface{}
-)
+type transaction struct{ data tranData }
 
-// UnmarshalJSON populates a transaction with information from a Json byte array.
-func (tran *Transaction) UnmarshalJSON(data []byte) (err error) {
-	if err = json.Unmarshal(data, &tran.attrs); err != nil {
-		return
-	}
+// TranId returns the transaction id for the transaction.
+func (t *transaction) TranId() int { return t.data.TranId }
 
-	if tran.TranId, err = tran.AsInt("id"); err != nil {
-		return
-	}
-	delete(tran.attrs, "id")
+// AccountId returns the account id where the transaction occurred.
+func (t *transaction) AccountId() int { return t.data.AccountId }
 
-	if tran.AccountId, err = tran.AsInt("accountId"); err != nil {
-		return
-	}
-	delete(tran.attrs, "accountId")
+// Time returns the time at which the transaction occurred.
+func (t *transaction) Time() time.Time { return t.data.Time }
 
-	if tran.Type, err = tran.AsString("type"); err != nil {
-		return
-	}
-	delete(tran.attrs, "type")
-
-	if tran.Time, err = tran.AsTime("time"); err != nil {
-		return
-	}
-	delete(tran.attrs, "time")
-
-	return nil
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (t *transaction) UnmarshalJSON(data []byte) (err error) {
+	return json.Unmarshal(data, &t.data)
 }
 
 // String implementes the Stringer interface.
-func (tran *Transaction) String() string {
-	return fmt.Sprintf("Transaction{TranId: %d, Type: %s}", tran.TranId, tran.Type)
+func (t *transaction) String() string {
+	return fmt.Sprintf("transaction{TranId: %d, AccountId: %d Type: %s}",
+		t.TranId(), t.AccountId(), t.Type())
 }
 
-// AsFloat returns a Transaction attribute as a float value.
-func (tran *Transaction) AsFloat(key string) (f float64, err error) {
-	if v, ok := tran.attrs[key]; !ok {
-		err = fmt.Errorf("invalid attribute %s", key)
-		return
+// Type returns the transaction type.
+func (t *transaction) Type() string { return t.data.Type }
 
-	} else if f, ok = v.(float64); !ok {
-		err = fmt.Errorf("cannot convert attribute %s = %v to float64", key, v)
-		return
+func (t *transaction) AsAccountCreate() (*tranAccountCreate, error) {
+	if t.Type() == "CREATE" {
+		return &tranAccountCreate{t}, nil
 	}
-	return
+	return nil, fmt.Errorf("conversion AsAccountCreate is invalid for type %s", t.Type())
 }
 
-// AsInt returns a Transction attribute as an integer value.
-func (tran *Transaction) AsInt(key string) (i int, err error) {
-	f, err := tran.AsFloat(key)
-	if err != nil {
-		return
+func (t *transaction) AsTradeCreate() (*tranTradeCreate, error) {
+	switch t.Type() {
+	case "MARKET_ORDER_CREATE", "ORDER_FILLED":
+		return &tranTradeCreate{t}, nil
 	}
-
-	if i = int(f); float64(i) != f {
-		err = fmt.Errorf("cannot convert attribute %s = %v to integer", key, f)
-		return
-	}
-	return
+	return nil, fmt.Errorf("conversion AsTradeCreate is invalid for type %s", t.Type())
 }
 
-// AsString returns a Transaction attribute as a string value.
-func (tran *Transaction) AsString(key string) (str string, err error) {
-	if v, ok := tran.attrs[key]; !ok {
-		err = fmt.Errorf("invalid attribute %s", key)
-		return
-
-	} else if str, ok = v.(string); !ok {
-		err = fmt.Errorf("cannot convert attribute %s = %v to string", key, v)
-		return
+// AsOrderCreate returns an OrderCreate transaction instance to provide access to
+// transaction specific information.  An error is returned if the transaction is not of
+// type LIMIT_ORDER_CREATE, STOP_ORDER_CREATE or MARKET_IF_TOUCHED_ORDER_CREATE.
+func (t *transaction) AsOrderCreate() (*tranOrderCreate, error) {
+	switch t.Type() {
+	case "LIMIT_ORDER_CREATE", "STOP_ORDER_CREATE", "MARKET_IF_TOUCHED_ORDER_CREATE":
+		return &tranOrderCreate{t}, nil
 	}
-
-	return
+	return nil, fmt.Errorf("conversion AsOrderCreate is invalid for type %s", t.Type())
 }
 
-// AsTime returns a Transaction attribute as a time value.
-func (tran *Transaction) AsTime(key string) (t time.Time, err error) {
-	s, err := tran.AsString(key)
-	if err != nil {
-		return
+func (t *transaction) AsOrderUpdate() (*tranOrderUpdate, error) {
+	if t.Type() == "ORDER_UPDATE" {
+		return &tranOrderUpdate{t}, nil
 	}
-	t, err = time.Parse(time.RFC3339, s)
-	return
+	return nil, fmt.Errorf("conversion AsOrderUpdate is invalid for type %s", t.Type())
 }
 
-// TradeData returns any details about a trade that was created or reduced as a result of
-// the transaction.
-func (tran *Transaction) TradeData() (td *TradeData, err error) {
-	m, ok := tran.attrs["tradeOpened"].(map[string]interface{})
-	if !ok {
-		m, ok = tran.attrs["tradeReduced"].(map[string]interface{})
+func (t *transaction) AsOrderCancel() (*tranOrderCancel, error) {
+	if t.Type() == "ORDER_CANCEL" {
+		return &tranOrderCancel{t}, nil
 	}
-	if !ok {
-		err = fmt.Errorf("%s does not have TradeData", tran)
-		return
-	}
-
-	td = &TradeData{}
-
-	f, ok := m["id"].(float64)
-	if !ok {
-		err = fmt.Errorf("%s does not have TradeData", tran)
-		return
-	}
-	td.TradeId = int(f)
-
-	if f, ok = m["units"].(float64); !ok {
-		err = fmt.Errorf("%s TradeData does not include units", tran)
-		return
-	}
-	td.Units = int(f)
-
-	if f, ok = m["pl"].(float64); ok {
-		td.Pl = f
-	}
-
-	if f, ok = m["interest"].(float64); ok {
-		td.Interest = f
-	}
-
-	return
+	return nil, fmt.Errorf("conversion AsOrderCancel is invalid for type %s", t.Type())
 }
+
+func (t *transaction) AsOrderFilled() (*tranOrderFilled, error) {
+	if t.Type() == "ORDER_FILLED" {
+		return &tranOrderFilled{&tranTradeCreate{t}}, nil
+	}
+	return nil, fmt.Errorf("conversion AsOrderFilled is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsTradeUpdate() (*tranTradeUpdate, error) {
+	if t.Type() == "TRADE_UPDATE" {
+		return &tranTradeUpdate{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsTradeUpdate is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsTradeClose() (*tranTradeClose, error) {
+	switch t.Type() {
+	case "TRADE_CLOSE", "MIGRATE_TRADE_CLOSE",
+		"TAKE_PROFIT_FILLED", "STOP_LOSS_FILLED",
+		"TRAILING_STOP_FILLED", "MARGIN_CLOSEOUT":
+
+		return &tranTradeClose{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsTradeClose is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsMigrateTradeOpen() (*tranMigrateTradeOpen, error) {
+	if t.Type() == "MIGRATE_TRADE_OPEN" {
+		return &tranMigrateTradeOpen{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsMigrateTradeOpen is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsSetMarginRate() (*tranSetMarginRate, error) {
+	if t.Type() == "SET_MARGIN_RATE" {
+		return &tranSetMarginRate{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsSetMarginRate is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsTransferFunds() (*tranTransferFunds, error) {
+	if t.Type() == "TRANSFER_FUNDS" {
+		return &tranTransferFunds{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsTransferFunds is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsDailyInterest() (*tranDailyInterest, error) {
+	if t.Type() == "DAILY_INTEREST" {
+		return &tranDailyInterest{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsDailyInterest is invalid for type %s", t.Type())
+}
+
+func (t *transaction) AsFee() (*tranFee, error) {
+	if t.Type() == "FEE" {
+		return &tranFee{t}, nil
+	}
+	return nil, fmt.Errorf("conversion AsFee is invalid for type %s", t.Type())
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CREATE
+
+type tranAccountCreate struct{ *transaction }
+
+func (t *tranAccountCreate) HomeCurrency() string { return t.data.HomeCurrency }
+func (t *tranAccountCreate) Reason() string       { return t.data.Reason }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MARKET_ORDER_CREATE
+
+type tranTradeCreate struct{ *transaction }
+
+func (t *tranTradeCreate) Instrument() string       { return t.data.Instrument }
+func (t *tranTradeCreate) Side() string             { return t.data.Side }
+func (t *tranTradeCreate) Units() int               { return t.data.Units }
+func (t *tranTradeCreate) Price() float64           { return t.data.Price }
+func (t *tranTradeCreate) Pl() float64              { return t.data.Pl }
+func (t *tranTradeCreate) Interest() float64        { return t.data.Interest }
+func (t *tranTradeCreate) LowerBound() float64      { return t.data.LowerBound }
+func (t *tranTradeCreate) UpperBound() float64      { return t.data.UpperBound }
+func (t *tranTradeCreate) AccountBalance() float64  { return t.data.AccountBalance }
+func (t *tranTradeCreate) StopLossPrice() float64   { return t.data.StopLossPrice }
+func (t *tranTradeCreate) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
+func (t *tranTradeCreate) TrailingStopLossDistance() float64 {
+	return t.data.TrailingStopLossDistance
+}
+func (t *tranTradeCreate) TradeOpened() *tranTradeDetail {
+	if t.data.TradeOpened != nil {
+		return &tranTradeDetail{t.data.TradeOpened}
+	}
+	return nil
+}
+func (t *tranTradeCreate) TradeReduced() *tranTradeDetail {
+	if t.data.TradeReduced != nil {
+		return &tranTradeDetail{t.data.TradeReduced}
+	}
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// LIMIT_ORDER_CREATE, STOP_ORDER_CREATE, MARKET_IF_TOUCHED_CREATE
+
+type tranOrderCreate struct{ *transaction }
+
+func (t *tranOrderCreate) Instrument() string       { return t.data.Instrument }
+func (t *tranOrderCreate) Side() string             { return t.data.Side }
+func (t *tranOrderCreate) Units() int               { return t.data.Units }
+func (t *tranOrderCreate) Price() float64           { return t.data.Price }
+func (t *tranOrderCreate) Expiry() time.Time        { return t.data.Expiry }
+func (t *tranOrderCreate) Reason() string           { return t.data.Reason }
+func (t *tranOrderCreate) LowerBound() float64      { return t.data.LowerBound }
+func (t *tranOrderCreate) UpperBound() float64      { return t.data.UpperBound }
+func (t *tranOrderCreate) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
+func (t *tranOrderCreate) StopLossPrice() float64   { return t.data.StopLossPrice }
+func (t *tranOrderCreate) TrailingStopLossDistance() float64 {
+	return t.data.TrailingStopLossDistance
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ORDER_UPDATE
+
+type tranOrderUpdate struct{ *transaction }
+
+func (t *tranOrderUpdate) Instrument() string       { return t.data.Instrument }
+func (t *tranOrderUpdate) Side() string             { return t.data.Side }
+func (t *tranOrderUpdate) Units() int               { return t.data.Units }
+func (t *tranOrderUpdate) Reason() string           { return t.data.Reason }
+func (t *tranOrderUpdate) LowerBound() float64      { return t.data.LowerBound }
+func (t *tranOrderUpdate) UpperBound() float64      { return t.data.UpperBound }
+func (t *tranOrderUpdate) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
+func (t *tranOrderUpdate) StopLossPrice() float64   { return t.data.StopLossPrice }
+func (t *tranOrderUpdate) TrailingStopLossDistance() float64 {
+	return t.data.TrailingStopLossDistance
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ORDER_CANCEL
+
+type tranOrderCancel struct{ *transaction }
+
+func (t *tranOrderCancel) OrderId() int   { return t.data.OrderId }
+func (t *tranOrderCancel) Reason() string { return t.data.Reason }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ORDER_FILLED
+
+type tranOrderFilled struct{ *tranTradeCreate }
+
+func (t *tranOrderFilled) OrderId() int { return t.data.OrderId }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// TRADE_UPDATE
+
+type tranTradeUpdate struct{ *transaction }
+
+func (t *tranTradeUpdate) Instrument() string               { return t.data.Instrument }
+func (t *tranTradeUpdate) Units() int                       { return t.data.Units }
+func (t *tranTradeUpdate) Side() string                     { return t.data.Side }
+func (t *tranTradeUpdate) TradeId() int                     { return t.data.TradeId }
+func (t *tranTradeUpdate) TakeProfitPrice() float64         { return t.data.TakeProfitPrice }
+func (t *tranTradeUpdate) StopLossPrice() float64           { return t.data.StopLossPrice }
+func (t *tranTradeUpdate) TailingStopLossDistance() float64 { return t.data.TrailingStopLossDistance }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// TRADE_CLOSE, MIGRATE_TRADE_CLOSE, TAKE_PROFIT_FILLED, STOP_LOSS_FILLED, TRAILING_STOP_FILLED,
+// MARGIN_CLOSEOUT
+
+type tranTradeClose struct{ *transaction }
+
+func (t *tranTradeClose) Instrument() string {
+	return t.data.Instrument
+}
+
+func (t *tranTradeClose) Units() int {
+	return t.data.Units
+}
+
+func (t *tranTradeClose) Side() string {
+	return t.data.Side
+}
+
+func (t *tranTradeClose) Price() float64 {
+	return t.data.Price
+}
+
+func (t *tranTradeClose) Pl() float64 {
+	return t.data.Pl
+}
+
+func (t *tranTradeClose) Interest() float64 {
+	return t.data.Interest
+}
+
+func (t *tranTradeClose) AccountBalance() float64 {
+	return t.data.AccountBalance
+}
+
+func (t *tranTradeClose) TradeId() int {
+	return t.data.TradeId
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MIGRATE_TRADE_OPEN
+
+type tranMigrateTradeOpen struct{ *transaction }
+
+func (t *tranMigrateTradeOpen) Instrument() string       { return t.data.Instrument }
+func (t *tranMigrateTradeOpen) Side() string             { return t.data.Side }
+func (t *tranMigrateTradeOpen) Units() int               { return t.data.Units }
+func (t *tranMigrateTradeOpen) Price() float64           { return t.data.Price }
+func (t *tranMigrateTradeOpen) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
+func (t *tranMigrateTradeOpen) StopLossPrice() float64   { return t.data.StopLossPrice }
+func (t *tranMigrateTradeOpen) TrailingStopLossDistance() float64 {
+	return t.data.TrailingStopLossDistance
+}
+func (t *tranMigrateTradeOpen) TradeOpened() *tranTradeDetail {
+	return &tranTradeDetail{t.data.TradeOpened}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// SET_MARGIN_RATE
+
+type tranSetMarginRate struct{ *transaction }
+
+func (t *tranSetMarginRate) Rate() float64 { return t.data.Rate }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// TRANSFER_FUNDS
+
+type tranTransferFunds struct{ *transaction }
+
+func (t *tranTransferFunds) Amount() float64 { return t.data.Amount }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// DAILY_INTEREST
+
+type tranDailyInterest struct{ *transaction }
+
+func (t *tranDailyInterest) Interest() float64 { return t.data.Interest }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FEE
+
+type tranFee struct{ *transaction }
+
+func (t *tranFee) Amount() float64         { return t.data.Amount }
+func (t *tranFee) AccountBalance() float64 { return t.data.AccountBalance }
+func (t *tranFee) Reason() string          { return t.data.Reason }
+
+type (
+	MinId        int
+	transactions []transaction
+)
 
 type TransactionsArg interface {
 	ApplyTransactionsArg(url.Values)
@@ -189,7 +410,7 @@ func (ids Ids) ApplyTransactionsArg(v url.Values) {
 }
 
 // Transactions returns an array of transactions.
-func (c *Client) Transactions(args ...TransactionsArg) (Transactions, error) {
+func (c *Client) Transactions(args ...TransactionsArg) (transactions, error) {
 	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/transactions", c.AccountId), "api")
 
 	data := u.Query()
@@ -204,7 +425,8 @@ func (c *Client) Transactions(args ...TransactionsArg) (Transactions, error) {
 	}
 
 	s := struct {
-		Transactions Transactions `json:"transactions"`
+		ApiError
+		Transactions transactions `json:"transactions"`
 	}{}
 	if _, err := ctx.Decode(&s); err != nil {
 		return nil, err
@@ -213,19 +435,22 @@ func (c *Client) Transactions(args ...TransactionsArg) (Transactions, error) {
 }
 
 // Transaction returns data for a single transaction.
-func (c *Client) Transaction(tranId int) (*Transaction, error) {
+func (c *Client) Transaction(tranId int) (*transaction, error) {
 	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/transactions/%d", c.AccountId, tranId), "api")
 	ctx, err := c.newContext("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	tran := Transaction{}
+	tran := struct {
+		ApiError
+		transaction
+	}{}
 	if _, err = ctx.Decode(&tran); err != nil {
 		return nil, err
 	}
 
-	return &tran, nil
+	return &tran.transaction, nil
 }
 
 // FullTransactionHistory returns a url from which a file containing the full transaction history

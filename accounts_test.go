@@ -21,6 +21,17 @@ import (
 	"gopkg.in/check.v1"
 )
 
+func newSandboxClientWithAccount() (*oanda.Client, error) {
+	sbClient := oanda.NewSandboxClient()
+	accountId, err := sbClient.NewAccount()
+	if err != nil {
+		return nil, err
+	}
+	c := sbClient.Client
+	c.AccountId = accountId
+	return c, nil
+}
+
 func Test(t *testing.T) { check.TestingT(t) }
 
 type TestSuite struct {
@@ -30,12 +41,9 @@ type TestSuite struct {
 var _ = check.Suite(&TestSuite{})
 
 func (ts *TestSuite) SetUpSuite(c *check.C) {
-	sbClient := oanda.NewSandboxClient()
-	accountId, err := sbClient.NewAccount()
+	var err error
+	ts.c, err = newSandboxClientWithAccount()
 	c.Assert(err, check.IsNil)
-	ts.c = sbClient.Client
-	ts.c.AccountId = accountId
-	return
 }
 
 func (ts *TestSuite) TestAccount(c *check.C) {

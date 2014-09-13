@@ -22,7 +22,7 @@ import (
 
 type InstrumentInfo struct {
 	DisplayName     string  `json:"displayName"`
-	Pip             string  `json:"pip"`
+	Pip             float64 `json:"pip,string"`
 	MaxTradeUnits   int     `json:"maxTradeUnits"`
 	Precision       float64 `json:"precision"`
 	MaxTrailingStop float64 `json:"maxTrailingStop"`
