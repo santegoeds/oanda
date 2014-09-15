@@ -78,3 +78,18 @@ func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
 	c.Assert(err, check.NotNil)
 	c.Log(err)
 }
+
+func (ts *TestSuite) TestPricesServerHeartbeat(c *check.C) {
+	ps, err := ts.c.NewPricesServer("gbp_aud")
+	c.Assert(err, check.IsNil)
+
+	ps.HeartbeatFunc = func(hb time.Time) {
+		c.Logf("Heartbeat: %s", hb)
+		ps.Stop()
+	}
+
+	err = ps.Run(func(in string, tick oanda.PriceTick) {
+		c.Log(in, tick)
+	})
+	c.Assert(err, check.IsNil)
+}

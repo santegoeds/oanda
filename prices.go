@@ -119,18 +119,22 @@ var tickPool = sync.Pool{
 }
 
 type TickHandleFunc func(instrument string, pp PriceTick)
+type HeartbeatHandleFunc func(t time.Time)
 
 type pricesServer struct {
-	ChannelSize  int
-	StallTimeout time.Duration
+	ChannelSize   int
+	StallTimeout  time.Duration
+	HeartbeatFunc HeartbeatHandleFunc
 
 	ctx         *Context
 	instruments []string
+	hbCh        chan time.Time
 	tickChs     map[string]chan *instrumentTick
 	stallTimer  *time.Timer
+	isStopped   bool
+	wg          sync.WaitGroup
 	rsp         *http.Response
 	rspMtx      sync.Mutex
-	isStopped   bool
 }
 
 // NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
@@ -169,6 +173,7 @@ func (ps *pricesServer) Run(handleFn TickHandleFunc) error {
 		return err
 	}
 	defer ps.cleanup()
+	ps.startHeartbeatHandler()
 	ps.startTickHandlers(handleFn)
 	for !ps.isStopped {
 		ps.connect()
@@ -189,6 +194,7 @@ func (ps *pricesServer) init() error {
 	}
 	ps.isStopped = false
 	ps.stallTimer = time.AfterFunc(ps.StallTimeout, ps.disconnect)
+	ps.hbCh = make(chan time.Time)
 	ps.tickChs = make(map[string]chan *instrumentTick, ps.ChannelSize)
 	for _, in := range ps.instruments {
 		ps.tickChs[in] = make(chan *instrumentTick)
@@ -201,19 +207,39 @@ func (ps *pricesServer) init() error {
 func (ps *pricesServer) cleanup() {
 	ps.stallTimer.Stop()
 	ps.disconnect()
+	close(ps.hbCh)
 	for _, tickCh := range ps.tickChs {
 		close(tickCh)
 	}
+	ps.wg.Wait()
+}
+
+func (ps *pricesServer) startHeartbeatHandler() {
+	ps.wg.Add(1)
+	go func() {
+		var handleFn HeartbeatHandleFunc
+		for hb := range ps.hbCh {
+			// Take a copy; it's possible that the handle func on the pricesServer instance is
+			// changed.
+			handleFn = ps.HeartbeatFunc
+			if handleFn != nil {
+				handleFn(hb)
+			}
+		}
+		ps.wg.Done()
+	}()
 }
 
 // startTickHanders starts one go-routine for each requested instrument.
 func (ps *pricesServer) startTickHandlers(handleFn TickHandleFunc) {
+	ps.wg.Add(len(ps.tickChs))
 	for _, ch := range ps.tickChs {
 		go func(tickCh <-chan *instrumentTick) {
 			for tick := range tickCh {
 				handleFn(tick.Instrument, tick.PriceTick)
 				tickPool.Put(tick)
 			}
+			ps.wg.Done()
 		}(ch)
 	}
 }
@@ -303,7 +329,17 @@ func (ps *pricesServer) dispatchTicks() error {
 			}
 		} else if msgData, ok = rawMessage["heartbeat"]; ok {
 
-			// No need to process heartbeats.
+			hb := struct {
+				Time time.Time `json:"time"`
+			}{}
+			if err = json.Unmarshal(msgData, &hb); err != nil {
+				return err
+			}
+
+			select {
+			case ps.hbCh <- hb.Time:
+			default:
+			}
 
 		} else if msgData, ok = rawMessage["disconnect"]; ok {
 
