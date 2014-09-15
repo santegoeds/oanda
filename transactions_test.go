@@ -42,11 +42,11 @@ func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
 
 		switch tran.Type() {
 		case "CREATE":
-			_, err = tran.AsAccountCreate()
-			c.Assert(err, check.IsNil)
+			_, ok := tran.AsAccountCreate()
+			c.Assert(ok, check.Equals, true)
 		case "TRANSFER_FUNDS":
-			_, err = tran.AsTransferFunds()
-			c.Assert(err, check.IsNil)
+			_, ok := tran.AsTransferFunds()
+			c.Assert(ok, check.Equals, true)
 		}
 	}
 
@@ -63,7 +63,7 @@ func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
 	c.Log(tran)
 	c.Assert(tran.Type(), check.Equals, "TRANSFER_FUNDS")
 
-	tfTran, err := tran.AsTransferFunds()
-	c.Assert(err, check.IsNil)
+	tfTran, ok := tran.AsTransferFunds()
+	c.Assert(ok, check.Equals, true)
 	c.Assert(tfTran.Amount(), check.Equals, 100000.0)
 }

@@ -90,104 +90,104 @@ func (t *transaction) String() string {
 // Type returns the transaction type.
 func (t *transaction) Type() string { return t.data.Type }
 
-func (t *transaction) AsAccountCreate() (*tranAccountCreate, error) {
+func (t *transaction) AsAccountCreate() (*tranAccountCreate, bool) {
 	if t.Type() == "CREATE" {
-		return &tranAccountCreate{t}, nil
+		return &tranAccountCreate{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsAccountCreate is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsTradeCreate() (*tranTradeCreate, error) {
+func (t *transaction) AsTradeCreate() (*tranTradeCreate, bool) {
 	switch t.Type() {
 	case "MARKET_ORDER_CREATE", "ORDER_FILLED":
-		return &tranTradeCreate{t}, nil
+		return &tranTradeCreate{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsTradeCreate is invalid for type %s", t.Type())
+	return nil, false
 }
 
 // AsOrderCreate returns an OrderCreate transaction instance to provide access to
 // transaction specific information.  An error is returned if the transaction is not of
 // type LIMIT_ORDER_CREATE, STOP_ORDER_CREATE or MARKET_IF_TOUCHED_ORDER_CREATE.
-func (t *transaction) AsOrderCreate() (*tranOrderCreate, error) {
+func (t *transaction) AsOrderCreate() (*tranOrderCreate, bool) {
 	switch t.Type() {
 	case "LIMIT_ORDER_CREATE", "STOP_ORDER_CREATE", "MARKET_IF_TOUCHED_ORDER_CREATE":
-		return &tranOrderCreate{t}, nil
+		return &tranOrderCreate{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsOrderCreate is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsOrderUpdate() (*tranOrderUpdate, error) {
+func (t *transaction) AsOrderUpdate() (*tranOrderUpdate, bool) {
 	if t.Type() == "ORDER_UPDATE" {
-		return &tranOrderUpdate{t}, nil
+		return &tranOrderUpdate{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsOrderUpdate is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsOrderCancel() (*tranOrderCancel, error) {
+func (t *transaction) AsOrderCancel() (*tranOrderCancel, bool) {
 	if t.Type() == "ORDER_CANCEL" {
-		return &tranOrderCancel{t}, nil
+		return &tranOrderCancel{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsOrderCancel is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsOrderFilled() (*tranOrderFilled, error) {
+func (t *transaction) AsOrderFilled() (*tranOrderFilled, bool) {
 	if t.Type() == "ORDER_FILLED" {
-		return &tranOrderFilled{&tranTradeCreate{t}}, nil
+		return &tranOrderFilled{&tranTradeCreate{t}}, true
 	}
-	return nil, fmt.Errorf("conversion AsOrderFilled is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsTradeUpdate() (*tranTradeUpdate, error) {
+func (t *transaction) AsTradeUpdate() (*tranTradeUpdate, bool) {
 	if t.Type() == "TRADE_UPDATE" {
-		return &tranTradeUpdate{t}, nil
+		return &tranTradeUpdate{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsTradeUpdate is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsTradeClose() (*tranTradeClose, error) {
+func (t *transaction) AsTradeClose() (*tranTradeClose, bool) {
 	switch t.Type() {
 	case "TRADE_CLOSE", "MIGRATE_TRADE_CLOSE",
 		"TAKE_PROFIT_FILLED", "STOP_LOSS_FILLED",
 		"TRAILING_STOP_FILLED", "MARGIN_CLOSEOUT":
 
-		return &tranTradeClose{t}, nil
+		return &tranTradeClose{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsTradeClose is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsMigrateTradeOpen() (*tranMigrateTradeOpen, error) {
+func (t *transaction) AsMigrateTradeOpen() (*tranMigrateTradeOpen, bool) {
 	if t.Type() == "MIGRATE_TRADE_OPEN" {
-		return &tranMigrateTradeOpen{t}, nil
+		return &tranMigrateTradeOpen{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsMigrateTradeOpen is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsSetMarginRate() (*tranSetMarginRate, error) {
+func (t *transaction) AsSetMarginRate() (*tranSetMarginRate, bool) {
 	if t.Type() == "SET_MARGIN_RATE" {
-		return &tranSetMarginRate{t}, nil
+		return &tranSetMarginRate{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsSetMarginRate is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsTransferFunds() (*tranTransferFunds, error) {
+func (t *transaction) AsTransferFunds() (*tranTransferFunds, bool) {
 	if t.Type() == "TRANSFER_FUNDS" {
-		return &tranTransferFunds{t}, nil
+		return &tranTransferFunds{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsTransferFunds is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsDailyInterest() (*tranDailyInterest, error) {
+func (t *transaction) AsDailyInterest() (*tranDailyInterest, bool) {
 	if t.Type() == "DAILY_INTEREST" {
-		return &tranDailyInterest{t}, nil
+		return &tranDailyInterest{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsDailyInterest is invalid for type %s", t.Type())
+	return nil, false
 }
 
-func (t *transaction) AsFee() (*tranFee, error) {
+func (t *transaction) AsFee() (*tranFee, bool) {
 	if t.Type() == "FEE" {
-		return &tranFee{t}, nil
+		return &tranFee{t}, true
 	}
-	return nil, fmt.Errorf("conversion AsFee is invalid for type %s", t.Type())
+	return nil, false
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
