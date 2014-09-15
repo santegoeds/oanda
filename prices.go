@@ -189,9 +189,9 @@ func (ps *pricesServer) Run(handleFn TickHandleFunc) error {
 
 func (ps *pricesServer) init(handleFn TickHandleFunc) error {
 	for _, in := range ps.instruments {
-		ch := make(chan *instrumentTick)
-		ps.tickChs[in] = ch
-
+		ps.tickChs[in] = make(chan *instrumentTick)
+	}
+	for _, ch := range ps.tickChs {
 		ps.wg.Add(1)
 		go func(tickCh <-chan *instrumentTick) {
 			for tick := range tickCh {
