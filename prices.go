@@ -15,11 +15,7 @@ package oanda
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -110,8 +106,7 @@ type instrumentTick struct {
 }
 
 const (
-	DefaultChannelSize  = 5
-	DefaultStallTimeout = 10 * time.Second
+	DefaultChannelSize = 5
 )
 
 var tickPool = sync.Pool{
@@ -119,22 +114,13 @@ var tickPool = sync.Pool{
 }
 
 type TickHandleFunc func(instrument string, pp PriceTick)
-type HeartbeatHandleFunc func(t time.Time)
 
 type pricesServer struct {
-	ChannelSize   int
-	StallTimeout  time.Duration
-	HeartbeatFunc HeartbeatHandleFunc
+	ChannelSize int
 
-	ctx         *Context
+	*streamServer
 	instruments []string
-	hbCh        chan time.Time
 	tickChs     map[string]chan *instrumentTick
-	stallTimer  *time.Timer
-	isStopped   bool
-	wg          sync.WaitGroup
-	rsp         *http.Response
-	rspMtx      sync.Mutex
 }
 
 // NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
@@ -149,17 +135,16 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 	q.Set("instruments", strings.Join(instruments, ","))
 	u.RawQuery = q.Encode()
 
-	ctx, err := c.newContext("GET", u, nil)
+	ss, err := c.newStreamServer(u)
 	if err != nil {
 		return nil, err
 	}
 
 	ps := pricesServer{
 		ChannelSize:  DefaultChannelSize,
-		StallTimeout: DefaultStallTimeout,
-		ctx:          ctx,
+		streamServer: ss,
 		instruments:  instruments,
-		isStopped:    true,
+		tickChs:      make(map[string]chan *instrumentTick, len(instruments)),
 	}
 
 	return &ps, nil
@@ -168,72 +153,46 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 // Run connects to the oanda server and dispatches PriceTicks to handleFn. A separate handleFun
 // go-routine is started for each of the instruments.
 func (ps *pricesServer) Run(handleFn TickHandleFunc) error {
-	err := ps.init()
+	err := ps.init(handleFn)
 	if err != nil {
 		return err
 	}
 	defer ps.cleanup()
-	ps.startHeartbeatHandler()
-	ps.startTickHandlers(handleFn)
-	for !ps.isStopped {
-		ps.connect()
-		err = ps.dispatchTicks()
-	}
+
+	err = ps.streamServer.Run(func(msgType string, msgData json.RawMessage) error {
+		if msgType != "tick" {
+			return fmt.Errorf("%s is an unexpected message type", msgType)
+		}
+		tick := tickPool.Get().(*instrumentTick)
+		if err = json.Unmarshal(msgData, tick); err != nil {
+			return err
+		}
+
+		tickCh := ps.tickChs[tick.Instrument]
+		select {
+		case tickCh <- tick:
+			// Nop
+		default:
+			// Channel is full. Remove a tick from the channel to make space.
+			select {
+			case <-tickCh:
+			default:
+			}
+			tickCh <- tick
+		}
+
+		return nil
+	})
+
 	return err
 }
 
-// Stop terminates the connection to the oanda server.
-func (ps *pricesServer) Stop() {
-	ps.isStopped = true
-	ps.disconnect()
-}
-
-func (ps *pricesServer) init() error {
-	if !ps.isStopped {
-		return errors.New("Server is already running!")
-	}
-	ps.isStopped = false
-	ps.stallTimer = time.AfterFunc(ps.StallTimeout, ps.disconnect)
-	ps.hbCh = make(chan time.Time)
-	ps.tickChs = make(map[string]chan *instrumentTick, ps.ChannelSize)
+func (ps *pricesServer) init(handleFn TickHandleFunc) error {
 	for _, in := range ps.instruments {
-		ps.tickChs[in] = make(chan *instrumentTick)
-	}
-	return nil
-}
+		ch := make(chan *instrumentTick)
+		ps.tickChs[in] = ch
 
-// cleanup makes sure that any timers are stopped and that the connection to the Oanda server
-// is closed.
-func (ps *pricesServer) cleanup() {
-	ps.stallTimer.Stop()
-	ps.disconnect()
-	close(ps.hbCh)
-	for _, tickCh := range ps.tickChs {
-		close(tickCh)
-	}
-	ps.wg.Wait()
-}
-
-func (ps *pricesServer) startHeartbeatHandler() {
-	ps.wg.Add(1)
-	go func() {
-		var handleFn HeartbeatHandleFunc
-		for hb := range ps.hbCh {
-			// Take a copy; it's possible that the handle func on the pricesServer instance is
-			// changed.
-			handleFn = ps.HeartbeatFunc
-			if handleFn != nil {
-				handleFn(hb)
-			}
-		}
-		ps.wg.Done()
-	}()
-}
-
-// startTickHanders starts one go-routine for each requested instrument.
-func (ps *pricesServer) startTickHandlers(handleFn TickHandleFunc) {
-	ps.wg.Add(len(ps.tickChs))
-	for _, ch := range ps.tickChs {
+		ps.wg.Add(1)
 		go func(tickCh <-chan *instrumentTick) {
 			for tick := range tickCh {
 				handleFn(tick.Instrument, tick.PriceTick)
@@ -242,114 +201,13 @@ func (ps *pricesServer) startTickHandlers(handleFn TickHandleFunc) {
 			ps.wg.Done()
 		}(ch)
 	}
-}
 
-// connect issues a GET request and receives the http.Response object which is stores on the
-// pricesServer instance.
-func (ps *pricesServer) connect() {
-	ps.disconnect()
-	var err error
-	backoff := time.Second
-	for !ps.isStopped {
-		func() {
-			ps.rspMtx.Lock()
-			defer ps.rspMtx.Unlock()
-
-			ps.rsp, err = ps.ctx.Connect()
-			if err == nil {
-				ps.stallTimer.Reset(ps.StallTimeout)
-			}
-		}()
-
-		if err == nil {
-			return
-		}
-		time.Sleep(backoff)
-		backoff *= 2
-	}
-}
-
-// disconnect closes the connection to the Oanda server.
-func (ps *pricesServer) disconnect() {
-	ps.rspMtx.Lock()
-	defer ps.rspMtx.Unlock()
-	if ps.rsp != nil {
-		ps.rsp.Body.Close()
-	}
-}
-
-// dispatchTicks reads the chunked response from the Oanda server, decodes ticks and dispatches
-// them to the apropriate handler function.
-func (ps *pricesServer) dispatchTicks() error {
-	var strm io.Reader = ps.rsp.Body
-	if debug {
-		fmt.Fprintln(os.Stderr, ps.rsp)
-		strm = io.TeeReader(strm, os.Stderr)
-	}
-
-	dec := NewDecoder(strm)
-	for !ps.isStopped {
-		rawMessage := make(map[string]json.RawMessage)
-		err := dec.Decode(&rawMessage)
-		if err != nil {
-			// Server returned an ApiError instead of one of the documented Streaming JSON objects.
-			// The likely reason is that the GET arguments were invalid so reconnecting won't
-			// resolve the issue.  Therefore, stop the server before returning the error.
-			if _, ok := err.(*ApiError); ok {
-				ps.Stop()
-				return err
-			}
-
-			// The likely failure is that the http.Response.Body was closed.  Ignore the error
-			// and return from the method to reconnect if required.
-			return nil
-		}
-
-		ps.stallTimer.Reset(ps.StallTimeout)
-
-		msgData, ok := rawMessage["tick"]
-		if ok {
-			// Dispatch Tick.
-			tick := tickPool.Get().(*instrumentTick)
-			if err = json.Unmarshal(msgData, tick); err != nil {
-				return err
-			}
-
-			tickCh := ps.tickChs[tick.Instrument]
-			select {
-			case tickCh <- tick:
-				// Nop
-			default:
-				// Channel is full. Remove a tick from the channel to make space.
-				select {
-				case <-tickCh:
-				default:
-				}
-				tickCh <- tick
-			}
-		} else if msgData, ok = rawMessage["heartbeat"]; ok {
-
-			hb := struct {
-				Time time.Time `json:"time"`
-			}{}
-			if err = json.Unmarshal(msgData, &hb); err != nil {
-				return err
-			}
-
-			select {
-			case ps.hbCh <- hb.Time:
-			default:
-			}
-
-		} else if msgData, ok = rawMessage["disconnect"]; ok {
-
-			// Notification that the server is about to disconnect.
-			apiErr := ApiError{}
-			if err = json.Unmarshal(msgData, &apiErr); err != nil {
-				return err
-			}
-			return apiErr
-		}
-	}
 	return nil
+}
+
+func (ps *pricesServer) cleanup() {
+	for _, tickCh := range ps.tickChs {
+		close(tickCh)
+	}
+	ps.wg.Wait()
 }
