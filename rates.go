@@ -36,7 +36,7 @@ type InstrumentInfo struct {
 }
 
 func (ii InstrumentInfo) String() string {
-	return fmt.Sprintf("InstrumentInfo{DisplayName: %s, Pip: %s, MarginRate: %f}", ii.DisplayName,
+	return fmt.Sprintf("InstrumentInfo{DisplayName: %s, Pip: %f, MarginRate: %f}", ii.DisplayName,
 		ii.Pip, ii.MarginRate)
 }
 
