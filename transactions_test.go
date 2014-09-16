@@ -44,11 +44,16 @@ func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
 
 		switch tran.Type() {
 		case "CREATE":
-			_, ok := tran.AsAccountCreate()
+			acTran, ok := tran.AsAccountCreate()
 			c.Assert(ok, check.Equals, true)
+			c.Check(acTran.HomeCurrency(), check.Not(check.Equals), "")
+			c.Check(acTran.Reason(), check.Not(check.Equals), "")
+
 		case "TRANSFER_FUNDS":
-			_, ok := tran.AsTransferFunds()
+			tfTran, ok := tran.AsTransferFunds()
 			c.Assert(ok, check.Equals, true)
+			c.Check(tfTran.Amount(), check.Equals, 100000.)
+
 		}
 	}
 
@@ -62,16 +67,19 @@ func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
 
 	tran, err := ts.c.Transaction(trans[0].TranId())
 	c.Assert(err, check.IsNil)
+
 	c.Log(tran)
-	c.Assert(tran.Type(), check.Equals, "TRANSFER_FUNDS")
+	c.Check(tran.Type(), check.Equals, trans[0].Type())
+	c.Check(tran.AccountId(), check.Equals, trans[0].AccountId())
+	c.Check(tran.Time(), check.Equals, trans[0].Time())
 
-	tfTran, ok := tran.AsTransferFunds()
+	tfTran1, ok := trans[0].AsTransferFunds()
 	c.Assert(ok, check.Equals, true)
-	c.Assert(tfTran.Amount(), check.Equals, 100000.0)
-}
 
-type TestEventsServerSuite struct {
-	TestTranSuite
+	tfTran2, ok := tran.AsTransferFunds()
+	c.Assert(ok, check.Equals, true)
+
+	c.Check(tfTran1.Amount(), check.Equals, tfTran2.Amount())
 }
 
 func (ts *TestTranSuite) TestEventsServer(c *check.C) {
