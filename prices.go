@@ -105,10 +105,6 @@ type instrumentTick struct {
 	PriceTick
 }
 
-const (
-	DefaultChannelSize = 5
-)
-
 var tickPool = sync.Pool{
 	New: func() interface{} { return &instrumentTick{} },
 }
@@ -116,7 +112,7 @@ var tickPool = sync.Pool{
 type TickHandleFunc func(instrument string, pp PriceTick)
 
 type pricesServer struct {
-	ChannelSize int
+	BufferSize int
 
 	*streamServer
 	instruments []string
@@ -141,7 +137,7 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 	}
 
 	ps := pricesServer{
-		ChannelSize:  DefaultChannelSize,
+		BufferSize:   DefaultBufferSize,
 		streamServer: ss,
 		instruments:  instruments,
 		tickChs:      make(map[string]chan *instrumentTick, len(instruments)),

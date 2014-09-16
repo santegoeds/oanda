@@ -32,14 +32,11 @@ func (oa optionalArgs) SetFloat(k string, f float64) {
 }
 
 func (oa optionalArgs) SetIntArray(k string, ia []int) {
-	if ia == nil {
-		return
-	}
 	switch n := len(ia); {
 	case n == 0:
 		return
 	case n == 1:
-		url.Values(oa).Set("ids", strconv.Itoa(ia[0]))
+		url.Values(oa).Set(k, strconv.Itoa(ia[0]))
 	default:
 		strIds := make([]string, n)
 		for i, v := range ia {

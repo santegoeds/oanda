@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	DefaultBufferSize   = 5
 	DefaultStallTimeout = 10 * time.Second
 )
 
@@ -55,6 +56,7 @@ func (ss *streamServer) Run(handleFn messageHandleFunc) error {
 
 	for !ss.isStopped {
 		ss.connect()
+
 		err = ss.runDispatchLoop(handleFn)
 		if err != nil {
 			// FIXME: Log message
@@ -89,7 +91,6 @@ func (ss *streamServer) runDispatchLoop(handleFn messageHandleFunc) error {
 		}
 
 		ss.stallTimer.Reset(ss.StallTimeout)
-
 		err = ss.dispatchMessage(rawMessage, handleFn)
 		if err != nil {
 			return err
@@ -115,6 +116,7 @@ func (ss *streamServer) dispatchMessage(
 				select {
 				case ss.hbCh <- hb.Time:
 				default:
+					<-ss.hbCh
 				}
 			}
 
@@ -163,14 +165,11 @@ func (ss *streamServer) connect() {
 		func() {
 			ss.rspMtx.Lock()
 			defer ss.rspMtx.Unlock()
-
-			ss.rsp, err = ss.ctx.Connect()
-			if err == nil {
-				ss.stallTimer.Reset(ss.StallTimeout)
-			}
+			ss.rsp, err = ss.ctx.Request()
 		}()
 
 		if err == nil {
+			ss.stallTimer.Reset(ss.StallTimeout)
 			return
 		}
 		time.Sleep(backoff)
@@ -180,6 +179,7 @@ func (ss *streamServer) connect() {
 
 // disconnect closes the connection to the Oanda server.
 func (ss *streamServer) disconnect() {
+	ss.ctx.CancelRequest()
 	ss.rspMtx.Lock()
 	defer ss.rspMtx.Unlock()
 	if ss.rsp != nil {

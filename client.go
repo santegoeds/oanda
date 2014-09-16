@@ -16,10 +16,12 @@ package oanda
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 var debug = false
@@ -27,6 +29,7 @@ var debug = false
 type Client struct {
 	AccountId int
 
+	transport  *http.Transport
 	httpClient *http.Client
 	token      string
 	env        string
@@ -52,17 +55,32 @@ func NewSandboxClient() *SandboxClient {
 }
 
 func newClient(env, token string) *Client {
+	tr := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
 	client := Client{
-		httpClient: http.DefaultClient,
-		token:      token,
-		env:        env,
+		transport: tr,
+		httpClient: &http.Client{
+			Transport: tr,
+		},
+		token: token,
+		env:   env,
 	}
 	return &client
 }
 
+func (c *Client) CancelRequest(req *http.Request) {
+	c.transport.CancelRequest(req)
+}
+
 type Context struct {
-	oandaClient *Client
-	req         *http.Request
+	client *Client
+	req    *http.Request
 }
 
 func (c *Client) newContext(method string, u *url.URL, data url.Values) (*Context, error) {
@@ -89,19 +107,24 @@ func (c *Client) newContext(method string, u *url.URL, data url.Values) (*Contex
 		}
 	}
 
-	return &Context{oandaClient: c, req: req}, nil
+	return &Context{client: c, req: req}, nil
 }
 
-func (ctx *Context) Connect() (*http.Response, error) {
-	rsp, err := ctx.oandaClient.httpClient.Do(ctx.req)
+// Request initiates an Http connection using the request on the Context.
+func (ctx *Context) Request() (*http.Response, error) {
+	rsp, err := ctx.client.httpClient.Do(ctx.req)
 	if err != nil {
 		return nil, err
 	}
 	return rsp, nil
 }
 
+func (ctx *Context) CancelRequest() {
+	ctx.client.CancelRequest(ctx.req)
+}
+
 func (ctx *Context) Decode(vp interface{}) (int64, error) {
-	rsp, err := ctx.Connect()
+	rsp, err := ctx.Request()
 	if err != nil {
 		return 0, err
 	}
