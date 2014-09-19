@@ -1,3 +1,16 @@
+// Copyright 2014 Tjerk Santegoeds
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package oanda
 
 import (
@@ -5,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"sync"
@@ -13,192 +25,215 @@ import (
 )
 
 const (
-	DefaultBufferSize   = 5
-	DefaultStallTimeout = 10 * time.Second
+	defaultBufferSize   = 5
+	defaultStallTimeout = 10 * time.Second
 )
 
-type HeartbeatHandleFunc func(t time.Time)
-type messageHandleFunc func(key string, msgData json.RawMessage) error
+type (
+	MessageHandlerFunc   func(string, json.RawMessage)
+	HeartbeatHandlerFunc func(time.Time)
+)
 
-type streamServer struct {
-	StallTimeout  time.Duration
-	HeartbeatFunc HeartbeatHandleFunc
-
-	ctx        *Context
-	hbCh       chan time.Time
-	isStopped  bool
-	stallTimer *time.Timer
-	wg         sync.WaitGroup
-	rspMtx     sync.Mutex
-	rsp        *http.Response
+type TimedReader struct {
+	Timeout time.Duration
+	io.ReadCloser
+	timer *time.Timer
 }
 
-func (c *Client) newStreamServer(u *url.URL) (*streamServer, error) {
+func NewTimedReader(r io.ReadCloser, timeout time.Duration) *TimedReader {
+	return &TimedReader{
+		Timeout:    timeout,
+		ReadCloser: r,
+	}
+}
+
+func (r *TimedReader) Read(p []byte) (int, error) {
+	if r.timer == nil {
+		r.timer = time.AfterFunc(r.Timeout, func() { r.Close() })
+	} else {
+		r.timer.Reset(r.Timeout)
+	}
+	n, err := r.ReadCloser.Read(p)
+	r.timer.Stop()
+	return n, err
+}
+
+type StreamMessage struct {
+	Type       string
+	RawMessage json.RawMessage
+}
+
+func (msg *StreamMessage) UnmarshalJSON(data []byte) error {
+	msgMap := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(data, &msgMap); err != nil {
+		return err
+	}
+	if code, ok := msgMap["code"]; ok {
+		apiError := ApiError{}
+		if err := json.Unmarshal(code, &apiError.Code); err != nil {
+			return err
+		}
+		if apiError.Code != 0 {
+			json.Unmarshal(msgMap["message"], &apiError.Message)
+			json.Unmarshal(msgMap["moreInfo"], &apiError.MoreInfo)
+			return &apiError
+		}
+	}
+
+	for msgType, rawMessage := range msgMap {
+		msg.Type = msgType
+		msg.RawMessage = rawMessage
+	}
+	return nil
+}
+
+type streamServer interface {
+	HandleHeartbeat(time.Time)
+	HandleMessage(msgType string, rawMessage json.RawMessage)
+}
+
+type server struct {
+	ss     streamServer
+	mtx    sync.Mutex
+	ctx    *Context
+	runFlg bool
+}
+
+func (c *Client) NewServer(u *url.URL, ss streamServer) (*server, error) {
 	ctx, err := c.newContext("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
-	ss := streamServer{
-		StallTimeout: DefaultStallTimeout,
-		ctx:          ctx,
-		hbCh:         make(chan time.Time),
-		isStopped:    true,
+	s := server{
+		ss:  ss,
+		ctx: ctx,
 	}
-	return &ss, nil
+	return &s, nil
 }
 
-func (ss *streamServer) Run(handleFn messageHandleFunc) error {
-	err := ss.init()
-	if err != nil {
-		return err
+func (s *server) Run() (err error) {
+	if err = s.initServer(); err != nil {
+		return
 	}
-	defer ss.cleanup()
+	err = s.readMessages()
 
-	for !ss.isStopped {
-		ss.connect()
-
-		err = ss.runDispatchLoop(handleFn)
-		if err != nil {
-			// FIXME: Log message
-		}
-	}
-	return err
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.runFlg = false
+	return
 }
 
-func (ss *streamServer) runDispatchLoop(handleFn messageHandleFunc) error {
-	var strm io.Reader = ss.rsp.Body
-	if debug {
-		fmt.Fprintln(os.Stderr, ss.rsp)
-		strm = io.TeeReader(strm, os.Stderr)
+func (s *server) Stop() {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.runFlg = false
+	s.ctx.CancelRequest()
+}
+
+func (s *server) initServer() error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	if s.runFlg {
+		return errors.New("server is already running")
 	}
-
-	dec := NewDecoder(strm)
-	for !ss.isStopped {
-		rawMessage := make(map[string]json.RawMessage)
-		err := dec.Decode(&rawMessage)
-		if err != nil {
-			// Server returned an ApiError instead of one of the documented Streaming JSON objects.
-			// The likely reason is that the GET arguments were invalid so reconnecting won't
-			// resolve the issue.  Therefore, stop the server before returning the error.
-			if _, ok := err.(*ApiError); ok {
-				ss.Stop()
-				return err
-			}
-
-			// The likely failure is that the http.Response.Body was closed.  Ignore the error
-			// and return from the method to reconnect if required.
-			return nil
-		}
-
-		ss.stallTimer.Reset(ss.StallTimeout)
-		err = ss.dispatchMessage(rawMessage, handleFn)
-		if err != nil {
-			return err
-		}
-	}
-
+	s.runFlg = true
 	return nil
 }
 
-func (ss *streamServer) dispatchMessage(
-	rawMessage map[string]json.RawMessage, handleFn messageHandleFunc) error {
+const maxDelay = 5 * time.Minute
 
-	for msgType, msgData := range rawMessage {
-		switch msgType {
-		default:
-			handleFn(msgType, msgData)
+func debugf(format interface{}, args ...interface{}) {
+	s, ok := format.(string)
+	if ok {
+		n := len(s)
+		if n > 0 && s[n-1] != '\n' {
+			format = s + "\n"
+		}
+		fmt.Fprintf(os.Stderr, s, args...)
+	} else {
+		args = append([]interface{}{format}, args)
+		fmt.Fprintln(os.Stderr, args...)
+	}
+}
 
-		case "heartbeat":
-			hb := struct {
-				Time time.Time `json:"time"`
-			}{}
-			if err := json.Unmarshal(msgData, &hb); err == nil {
-				select {
-				case ss.hbCh <- hb.Time:
-				default:
-					<-ss.hbCh
+func (s *server) readMessages() error {
+	hbC := make(chan time.Time)
+	defer close(hbC)
+	go func() {
+		for hb := range hbC {
+			s.ss.HandleHeartbeat(hb)
+		}
+	}()
+
+	msgC := make(chan StreamMessage)
+	defer close(msgC)
+	go func() {
+		for msg := range msgC {
+			s.ss.HandleMessage(msg.Type, msg.RawMessage)
+		}
+	}()
+
+	newReader := func() (rdr io.ReadCloser, err error) {
+		d := time.Second
+		for {
+			s.mtx.Lock()
+			runFlg := s.runFlg
+			if runFlg {
+				err = s.ctx.Request()
+				if err == nil {
+					rdr = NewTimedReader(s.ctx.Response().Body, defaultStallTimeout)
 				}
 			}
-
-		case "disconnect":
-			// Notification that the server is about to disconnect.
-			apiErr := ApiError{}
-			if err := json.Unmarshal(msgData, &apiErr); err != nil {
-				return err
+			s.mtx.Unlock()
+			if !runFlg || rdr != nil || d >= maxDelay {
+				break
 			}
-			return apiErr
+			time.Sleep(d)
+			d *= 2
 		}
+		return
 	}
 
-	return nil
-}
-
-func (ss *streamServer) Stop() {
-	ss.isStopped = true
-	ss.disconnect()
-}
-
-func (ss *streamServer) init() error {
-	if !ss.isStopped {
-		return errors.New("Server is already running!")
-	}
-	ss.isStopped = false
-	ss.stallTimer = time.AfterFunc(ss.StallTimeout, ss.connect)
-	ss.startHeartbeatHandler()
-	return nil
-}
-
-func (ss *streamServer) cleanup() {
-	ss.stallTimer.Stop()
-	ss.disconnect()
-	close(ss.hbCh)
-}
-
-// connect issues a GET request and receives the http.Response object which is stores on the
-// pricesServer instance.
-func (ss *streamServer) connect() {
-	ss.disconnect()
-
-	var err error
-	backoff := time.Second
-	for !ss.isStopped {
-		func() {
-			ss.rspMtx.Lock()
-			defer ss.rspMtx.Unlock()
-			ss.rsp, err = ss.ctx.Request()
-		}()
-
-		if err == nil {
-			ss.stallTimer.Reset(ss.StallTimeout)
-			return
+	for {
+		rdr, err := newReader()
+		if rdr == nil || err != nil {
+			return err
 		}
-		time.Sleep(backoff)
-		backoff *= 2
-	}
-}
+		dec := json.NewDecoder(rdr)
 
-// disconnect closes the connection to the Oanda server.
-func (ss *streamServer) disconnect() {
-	ss.ctx.CancelRequest()
-	ss.rspMtx.Lock()
-	defer ss.rspMtx.Unlock()
-	if ss.rsp != nil {
-		ss.rsp.Body.Close()
-	}
-}
+		msg := StreamMessage{}
+		for {
+			err = dec.Decode(&msg)
+			if err != nil {
+				if _, ok := err.(*ApiError); ok {
+					rdr.Close()
+					return err
+				}
+				break
+			}
 
-func (ss *streamServer) startHeartbeatHandler() {
-	ss.wg.Add(1)
-	go func() {
-		var handleFn HeartbeatHandleFunc
-		for hb := range ss.hbCh {
-			// It's possible that the handle func on the pricesServer instance is changed or set
-			// to nil, so take a copy.
-			handleFn = ss.HeartbeatFunc
-			if handleFn != nil {
-				handleFn(hb)
+			switch msg.Type {
+			default:
+				msgC <- msg
+			case "heartbeat":
+				v := struct {
+					Time time.Time `json:"time"`
+				}{}
+				if err := json.Unmarshal(msg.RawMessage, &v); err != nil {
+					// FIXME: log error
+				} else {
+					hbC <- v.Time
+				}
+			case "disconnect":
+				apiErr := ApiError{}
+				if err = json.Unmarshal(msg.RawMessage, &apiErr); err == nil {
+					err = apiErr
+				}
+				// FIXME: log msg.AsApiError()
+				s.ctx.CancelRequest()
+				break
 			}
 		}
-		ss.wg.Done()
-	}()
+		rdr.Close()
+	}
 }

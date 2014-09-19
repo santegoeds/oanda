@@ -15,7 +15,6 @@ package oanda
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -109,14 +108,29 @@ var tickPool = sync.Pool{
 	New: func() interface{} { return &instrumentTick{} },
 }
 
-type TickHandleFunc func(instrument string, pp PriceTick)
+type TickHandlerFunc func(instr string, pp PriceTick)
+
+type StreamServer struct {
+	HandleMessageFn   MessageHandlerFunc
+	HandleHeartbeatFn HeartbeatHandlerFunc
+}
+
+func (pss StreamServer) HandleMessage(msgType string, msgData json.RawMessage) {
+	if pss.HandleMessageFn != nil {
+		pss.HandleMessageFn(msgType, msgData)
+	}
+}
+
+func (pss StreamServer) HandleHeartbeat(hb time.Time) {
+	if pss.HandleHeartbeatFn != nil {
+		pss.HandleHeartbeatFn(hb)
+	}
+}
 
 type pricesServer struct {
-	BufferSize int
-
-	*streamServer
-	instruments []string
-	tickChs     map[string]chan *instrumentTick
+	HeartbeatFunc HeartbeatHandlerFunc
+	srv           *server
+	chanMap       map[string]chan *instrumentTick
 }
 
 // NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
@@ -131,79 +145,77 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 	q.Set("instruments", strings.Join(instruments, ","))
 	u.RawQuery = q.Encode()
 
-	ss, err := c.newStreamServer(u)
-	if err != nil {
-		return nil, err
+	chanMap := make(map[string]chan *instrumentTick)
+	for _, instr := range instruments {
+		chanMap[instr] = nil
+	}
+	ps := pricesServer{
+		chanMap: chanMap,
 	}
 
-	ps := pricesServer{
-		BufferSize:   DefaultBufferSize,
-		streamServer: ss,
-		instruments:  instruments,
-		tickChs:      make(map[string]chan *instrumentTick, len(instruments)),
+	streamSrv := StreamServer{
+		HandleMessageFn:   ps.handleMessage,
+		HandleHeartbeatFn: ps.handleHeartbeat,
+	}
+
+	if srv, err := c.NewServer(u, &streamSrv); err != nil {
+		return nil, err
+	} else {
+		ps.srv = srv
 	}
 
 	return &ps, nil
 }
 
-// Run connects to the oanda server and dispatches PriceTicks to handleFn. A separate handleFun
-// go-routine is started for each of the instruments.
-func (ps *pricesServer) Run(handleFn TickHandleFunc) error {
-	err := ps.init(handleFn)
-	if err != nil {
-		return err
-	}
-	defer ps.cleanup()
-
-	err = ps.streamServer.Run(func(msgType string, msgData json.RawMessage) error {
-		if msgType != "tick" {
-			return fmt.Errorf("%s is an unexpected message type", msgType)
-		}
-		tick := tickPool.Get().(*instrumentTick)
-		if err = json.Unmarshal(msgData, tick); err != nil {
-			return err
-		}
-
-		tickCh := ps.tickChs[tick.Instrument]
-		select {
-		case tickCh <- tick:
-			// Nop
-		default:
-			// Channel is full. Remove a tick from the channel to make space.
-			select {
-			case <-tickCh:
-			default:
-			}
-			tickCh <- tick
-		}
-
-		return nil
-	})
-
+func (ps *pricesServer) Run(handleFn TickHandlerFunc) error {
+	ps.initServer(handleFn)
+	err := ps.srv.Run()
+	ps.finish()
 	return err
 }
 
-func (ps *pricesServer) init(handleFn TickHandleFunc) error {
-	for _, in := range ps.instruments {
-		ps.tickChs[in] = make(chan *instrumentTick)
-	}
-	for _, ch := range ps.tickChs {
-		ps.wg.Add(1)
-		go func(tickCh <-chan *instrumentTick) {
-			for tick := range tickCh {
+func (ps *pricesServer) Stop() {
+	ps.srv.Stop()
+}
+
+func (ps *pricesServer) initServer(handleFn TickHandlerFunc) {
+	for instr := range ps.chanMap {
+		tickC := make(chan *instrumentTick, defaultBufferSize)
+		ps.chanMap[instr] = tickC
+
+		go func(lclC <-chan *instrumentTick) {
+			for tick := range lclC {
 				handleFn(tick.Instrument, tick.PriceTick)
 				tickPool.Put(tick)
 			}
-			ps.wg.Done()
-		}(ch)
+		}(tickC)
 	}
-
-	return nil
 }
 
-func (ps *pricesServer) cleanup() {
-	for _, tickCh := range ps.tickChs {
-		close(tickCh)
+func (ps *pricesServer) finish() {
+	for instr, tickC := range ps.chanMap {
+		ps.chanMap[instr] = nil
+		close(tickC)
 	}
-	ps.wg.Wait()
+}
+
+func (ps *pricesServer) handleHeartbeat(hb time.Time) {
+	if ps.HeartbeatFunc != nil {
+		ps.HeartbeatFunc(hb)
+	}
+}
+
+func (ps *pricesServer) handleMessage(msgType string, rawMessage json.RawMessage) {
+	tick := tickPool.Get().(*instrumentTick)
+	if err := json.Unmarshal(rawMessage, tick); err != nil {
+		ps.Stop()
+		return
+	}
+
+	tickC := ps.chanMap[tick.Instrument]
+	if tickC != nil {
+		tickC <- tick
+	} else {
+		// FIXME: Log error "unexpected instrument"
+	}
 }

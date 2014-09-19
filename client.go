@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -62,6 +63,10 @@ func newClient(env, token string) *Client {
 			KeepAlive: 30 * time.Second,
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
+
+		// The number of connections to the stream server are restricted. Disable support for
+		// idle connections.
+		MaxIdleConnsPerHost: -1,
 	}
 	client := Client{
 		transport: tr,
@@ -81,6 +86,8 @@ func (c *Client) CancelRequest(req *http.Request) {
 type Context struct {
 	client *Client
 	req    *http.Request
+	rspMtx sync.Mutex
+	rsp    *http.Response
 }
 
 func (c *Client) newContext(method string, u *url.URL, data url.Values) (*Context, error) {
@@ -111,23 +118,42 @@ func (c *Client) newContext(method string, u *url.URL, data url.Values) (*Contex
 }
 
 // Request initiates an Http connection using the request on the Context.
-func (ctx *Context) Request() (*http.Response, error) {
+func (ctx *Context) Request() error {
+	ctx.rspMtx.Lock()
+	defer ctx.rspMtx.Unlock()
+
 	rsp, err := ctx.client.httpClient.Do(ctx.req)
 	if err != nil {
-		return nil, err
+		ctx.rsp = nil
+		return err
 	}
-	return rsp, nil
+	ctx.rsp = rsp
+	return nil
+}
+
+func (ctx *Context) Response() *http.Response {
+	ctx.rspMtx.Lock()
+	defer ctx.rspMtx.Unlock()
+	return ctx.rsp
 }
 
 func (ctx *Context) CancelRequest() {
+	ctx.rspMtx.Lock()
+	defer ctx.rspMtx.Unlock()
 	ctx.client.CancelRequest(ctx.req)
+	if ctx.rsp != nil {
+		ctx.rsp.Body.Close()
+		ctx.rsp = nil
+	}
 }
 
 func (ctx *Context) Decode(vp interface{}) (int64, error) {
-	rsp, err := ctx.Request()
+	err := ctx.Request()
 	if err != nil {
 		return 0, err
 	}
+
+	rsp := ctx.Response()
 	defer rsp.Body.Close()
 
 	var rdr io.Reader = rsp.Body

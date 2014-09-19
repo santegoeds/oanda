@@ -462,12 +462,11 @@ func (c *Client) FullTransactionHistory() (*url.URL, error) {
 		return nil, err
 	}
 
-	rsp, err := ctx.Request()
-	if err != nil {
+	if err := ctx.Request(); err != nil {
 		return nil, err
 	}
 
-	tranUrl, err := url.Parse(rsp.Header.Get("Location"))
+	tranUrl, err := ctx.Response().Location()
 	if err != nil {
 		return nil, err
 	}
@@ -477,18 +476,15 @@ func (c *Client) FullTransactionHistory() (*url.URL, error) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // eventsServer
-
 type (
 	EventsHandlerFunc func(int, *Transaction)
 	AccountId         int
 )
 
 type eventsServer struct {
-	BufferSize int
-
-	*streamServer
-	accountIds []int
-	tranChs    map[int]chan *Transaction
+	HeartbeatFunc HeartbeatHandlerFunc
+	chanMap       map[int]chan *Transaction
+	srv           *server
 }
 
 func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
@@ -497,66 +493,77 @@ func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
 	optionalArgs(q).SetIntArray("accountIds", accountId)
 	u.RawQuery = q.Encode()
 
-	ss, err := c.newStreamServer(u)
-	if err != nil {
-		return nil, err
+	chanMap := make(map[int]chan *Transaction, len(accountId))
+	for _, accId := range accountId {
+		chanMap[accId] = nil
 	}
+
 	es := &eventsServer{
-		BufferSize:   DefaultBufferSize,
-		streamServer: ss,
-		accountIds:   accountId,
-		tranChs:      make(map[int]chan *Transaction, len(accountId)),
+		chanMap: chanMap,
 	}
+
+	streamSrv := StreamServer{
+		HandleMessageFn:   es.handleMessage,
+		HandleHeartbeatFn: es.handleHeartbeat,
+	}
+
+	if s, err := c.NewServer(u, streamSrv); err != nil {
+		return nil, err
+	} else {
+		es.srv = s
+	}
+
 	return es, nil
 }
 
 func (es *eventsServer) Run(handleFn EventsHandlerFunc) (err error) {
-	if err = es.init(handleFn); err != nil {
-		return
-	}
-	defer es.cleanup()
-
-	err = es.streamServer.Run(func(msgType string, msgData json.RawMessage) error {
-		if msgType != "transaction" {
-			return fmt.Errorf("invalid message type %s", msgType)
-		}
-		// NOTE
-		// Don't use pooled transactions because field population is variable and it's possible
-		// to end up with stale information.
-		tran := &Transaction{}
-		if err = json.Unmarshal(msgData, tran); err != nil {
-			return err
-		}
-		select {
-		case es.tranChs[tran.AccountId()] <- tran:
-		default:
-			// FIXME: Log that we're dropping a transaction.
-		}
-		return nil
-	})
-
+	es.initServer(handleFn)
+	defer es.finish()
+	es.srv.Run()
 	return err
 }
 
-func (es *eventsServer) init(handleFn EventsHandlerFunc) error {
-	for _, aid := range es.accountIds {
-		es.tranChs[aid] = make(chan *Transaction, es.BufferSize)
-	}
-	for _, ch := range es.tranChs {
-		es.wg.Add(1)
-		go func(tranCh <-chan *Transaction) {
-			for tran := range tranCh {
-				handleFn(tran.AccountId(), tran)
-			}
-			es.wg.Done()
-		}(ch)
-	}
-	return nil
+func (es *eventsServer) Stop() {
+	es.srv.Stop()
 }
 
-func (es *eventsServer) cleanup() {
-	for _, tranCh := range es.tranChs {
-		close(tranCh)
+func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
+	for accId := range es.chanMap {
+		tranC := make(chan *Transaction, defaultBufferSize)
+		es.chanMap[accId] = tranC
+
+		go func(lclC <-chan *Transaction) {
+			for tran := range lclC {
+				handleFn(tran.AccountId(), tran)
+			}
+		}(tranC)
 	}
-	//es.wg.Wait()
+	return
+}
+
+func (es *eventsServer) finish() {
+	for accId, tranC := range es.chanMap {
+		es.chanMap[accId] = nil
+		close(tranC)
+	}
+}
+
+func (es *eventsServer) handleHeartbeat(hb time.Time) {
+	if es.HeartbeatFunc != nil {
+		es.HeartbeatFunc(hb)
+	}
+}
+
+func (es *eventsServer) handleMessage(msgType string, rawMessage json.RawMessage) {
+	tran := &Transaction{}
+	if err := json.Unmarshal(rawMessage, tran); err != nil {
+		// FIXME: log message
+		return
+	}
+	tranC := es.chanMap[tran.AccountId()]
+	if tranC != nil {
+		tranC <- tran
+	} else {
+		// FIXME: log error "unexpected accountId"
+	}
 }

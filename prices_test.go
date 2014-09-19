@@ -14,12 +14,31 @@
 package oanda_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/santegoeds/oanda"
 
 	"gopkg.in/check.v1"
 )
+
+type Counter struct {
+	m sync.RWMutex
+	n int
+}
+
+func (c *Counter) Inc() int {
+	c.m.Lock()
+	defer c.m.Unlock()
+	c.n++
+	return c.n
+}
+
+func (c *Counter) Val() int {
+	c.m.RLock()
+	defer c.m.RUnlock()
+	return c.n
+}
 
 func (ts *TestSuite) TestPollPrices(c *check.C) {
 	prices, err := ts.c.PollPrices("EUR_USD", "EUR_GBP")
@@ -57,16 +76,23 @@ func (ts *TestSuite) TestPricesServer(c *check.C) {
 	ps, err := ts.c.NewPricesServer("eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
-	count := 0
+	timeout := 2 * time.Minute
+	t := time.AfterFunc(timeout, func() {
+		c.Errorf("Failed to receive 3 ticks in %d minutes.", timeout/time.Minute)
+		ps.Stop()
+	})
+
+	count := Counter{}
 	err = ps.Run(func(instrument string, tick oanda.PriceTick) {
 		c.Log(instrument, tick)
-
-		count += 1
-		if count > 3 {
+		if count.Inc() > 3 {
 			ps.Stop()
 		}
 	})
+
+	t.Stop()
 	c.Assert(err, check.IsNil)
+	c.Assert(count.Val() > 3, check.Equals, true)
 }
 
 func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
