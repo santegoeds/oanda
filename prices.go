@@ -111,7 +111,7 @@ type tickChans struct {
 
 func (tc *tickChans) Instruments() []string {
 	tc.mtx.RLock()
-	defer tc.mtx.Unlock()
+	defer tc.mtx.RUnlock()
 	instruments := make([]string, len(tc.m))
 	for instr := range tc.m {
 		instruments = append(instruments, instr)
@@ -122,10 +122,6 @@ func (tc *tickChans) Instruments() []string {
 func (tc *tickChans) Set(instr string, ch chan *instrumentTick) {
 	tc.mtx.Lock()
 	defer tc.mtx.Unlock()
-	oldC := tc.m[instr]
-	if oldC != nil {
-		close(oldC)
-	}
 	tc.m[instr] = ch
 }
 

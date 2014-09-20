@@ -490,7 +490,7 @@ type eventChans struct {
 
 func (ec *eventChans) AccountIds() []int {
 	ec.mtx.RLock()
-	defer ec.mtx.Unlock()
+	defer ec.mtx.RUnlock()
 	accIds := make([]int, len(ec.m))
 	for accId := range ec.m {
 		accIds = append(accIds, accId)
@@ -501,10 +501,6 @@ func (ec *eventChans) AccountIds() []int {
 func (ec *eventChans) Set(accountId int, ch chan *Transaction) {
 	ec.mtx.Lock()
 	defer ec.mtx.Unlock()
-	oldC := ec.m[accountId]
-	if oldC != nil {
-		close(oldC)
-	}
 	ec.m[accountId] = ch
 }
 
@@ -584,7 +580,9 @@ func (es *eventsServer) finish() {
 	for _, accId := range es.chanMap.AccountIds() {
 		tranC, _ := es.chanMap.Get(accId)
 		es.chanMap.Set(accId, nil)
-		close(tranC)
+		if tranC != nil {
+			close(tranC)
+		}
 	}
 }
 
