@@ -104,6 +104,48 @@ type instrumentTick struct {
 	PriceTick
 }
 
+type tickChans struct {
+	mtx sync.RWMutex
+	m   map[string]chan *instrumentTick
+}
+
+func (tc *tickChans) Instruments() []string {
+	tc.mtx.RLock()
+	defer tc.mtx.Unlock()
+	instruments := make([]string, len(tc.m))
+	for instr := range tc.m {
+		instruments = append(instruments, instr)
+	}
+	return instruments
+}
+
+func (tc *tickChans) Set(instr string, ch chan *instrumentTick) {
+	tc.mtx.Lock()
+	defer tc.mtx.Unlock()
+	oldC := tc.m[instr]
+	if oldC != nil {
+		close(oldC)
+	}
+	tc.m[instr] = ch
+}
+
+func (tc *tickChans) Get(instr string) (chan *instrumentTick, bool) {
+	tc.mtx.RLock()
+	defer tc.mtx.RUnlock()
+	ch, ok := tc.m[instr]
+	return ch, ok
+}
+
+func newTickChans(instruments []string) *tickChans {
+	m := make(map[string]chan *instrumentTick)
+	for _, instr := range instruments {
+		m[instr] = nil
+	}
+	return &tickChans{
+		m: m,
+	}
+}
+
 var tickPool = sync.Pool{
 	New: func() interface{} { return &instrumentTick{} },
 }
@@ -130,7 +172,7 @@ func (pss StreamServer) HandleHeartbeat(hb time.Time) {
 type pricesServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	srv           *server
-	chanMap       map[string]chan *instrumentTick
+	chanMap       *tickChans
 }
 
 // NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
@@ -145,12 +187,8 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 	q.Set("instruments", strings.Join(instruments, ","))
 	u.RawQuery = q.Encode()
 
-	chanMap := make(map[string]chan *instrumentTick)
-	for _, instr := range instruments {
-		chanMap[instr] = nil
-	}
 	ps := pricesServer{
-		chanMap: chanMap,
+		chanMap: newTickChans(instruments),
 	}
 
 	streamSrv := StreamServer{
@@ -179,9 +217,9 @@ func (ps *pricesServer) Stop() {
 }
 
 func (ps *pricesServer) initServer(handleFn TickHandlerFunc) {
-	for instr := range ps.chanMap {
+	for _, instr := range ps.chanMap.Instruments() {
 		tickC := make(chan *instrumentTick, defaultBufferSize)
-		ps.chanMap[instr] = tickC
+		ps.chanMap.Set(instr, tickC)
 
 		go func(lclC <-chan *instrumentTick) {
 			for tick := range lclC {
@@ -193,9 +231,12 @@ func (ps *pricesServer) initServer(handleFn TickHandlerFunc) {
 }
 
 func (ps *pricesServer) finish() {
-	for instr, tickC := range ps.chanMap {
-		ps.chanMap[instr] = nil
-		close(tickC)
+	for _, instr := range ps.chanMap.Instruments() {
+		tickC, ok := ps.chanMap.Get(instr)
+		if ok && tickC != nil {
+			ps.chanMap.Set(instr, nil)
+			close(tickC)
+		}
 	}
 }
 
@@ -212,10 +253,12 @@ func (ps *pricesServer) handleMessage(msgType string, rawMessage json.RawMessage
 		return
 	}
 
-	tickC := ps.chanMap[tick.Instrument]
-	if tickC != nil {
+	tickC, ok := ps.chanMap.Get(tick.Instrument)
+	if !ok {
+		// FIXME: Log error "unexpected instrument"
+	} else if tickC != nil {
 		tickC <- tick
 	} else {
-		// FIXME: Log error "unexpected instrument"
+		// FIXME: Log "tick after server closed"
 	}
 }

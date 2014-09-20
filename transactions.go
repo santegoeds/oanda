@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -476,14 +477,57 @@ func (c *Client) FullTransactionHistory() (*url.URL, error) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // eventsServer
+
 type (
 	EventsHandlerFunc func(int, *Transaction)
 	AccountId         int
 )
 
+type eventChans struct {
+	mtx sync.RWMutex
+	m   map[int]chan *Transaction
+}
+
+func (ec *eventChans) AccountIds() []int {
+	ec.mtx.RLock()
+	defer ec.mtx.Unlock()
+	accIds := make([]int, len(ec.m))
+	for accId := range ec.m {
+		accIds = append(accIds, accId)
+	}
+	return accIds
+}
+
+func (ec *eventChans) Set(accountId int, ch chan *Transaction) {
+	ec.mtx.Lock()
+	defer ec.mtx.Unlock()
+	oldC := ec.m[accountId]
+	if oldC != nil {
+		close(oldC)
+	}
+	ec.m[accountId] = ch
+}
+
+func (ec *eventChans) Get(accountId int) (chan *Transaction, bool) {
+	ec.mtx.RLock()
+	defer ec.mtx.RUnlock()
+	ch, ok := ec.m[accountId]
+	return ch, ok
+}
+
+func newEventChans(accountIds []int) *eventChans {
+	m := make(map[int]chan *Transaction, len(accountIds))
+	for _, accId := range accountIds {
+		m[accId] = nil
+	}
+	return &eventChans{
+		m: m,
+	}
+}
+
 type eventsServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
-	chanMap       map[int]chan *Transaction
+	chanMap       *eventChans
 	srv           *server
 }
 
@@ -493,13 +537,8 @@ func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
 	optionalArgs(q).SetIntArray("accountIds", accountId)
 	u.RawQuery = q.Encode()
 
-	chanMap := make(map[int]chan *Transaction, len(accountId))
-	for _, accId := range accountId {
-		chanMap[accId] = nil
-	}
-
 	es := &eventsServer{
-		chanMap: chanMap,
+		chanMap: newEventChans(accountId),
 	}
 
 	streamSrv := StreamServer{
@@ -528,9 +567,9 @@ func (es *eventsServer) Stop() {
 }
 
 func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
-	for accId := range es.chanMap {
+	for _, accId := range es.chanMap.AccountIds() {
 		tranC := make(chan *Transaction, defaultBufferSize)
-		es.chanMap[accId] = tranC
+		es.chanMap.Set(accId, tranC)
 
 		go func(lclC <-chan *Transaction) {
 			for tran := range lclC {
@@ -542,8 +581,9 @@ func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
 }
 
 func (es *eventsServer) finish() {
-	for accId, tranC := range es.chanMap {
-		es.chanMap[accId] = nil
+	for _, accId := range es.chanMap.AccountIds() {
+		tranC, _ := es.chanMap.Get(accId)
+		es.chanMap.Set(accId, nil)
 		close(tranC)
 	}
 }
@@ -560,10 +600,12 @@ func (es *eventsServer) handleMessage(msgType string, rawMessage json.RawMessage
 		// FIXME: log message
 		return
 	}
-	tranC := es.chanMap[tran.AccountId()]
-	if tranC != nil {
+	tranC, ok := es.chanMap.Get(tran.AccountId())
+	if !ok {
+		// FIXME: log error "unexpected accountId"
+	} else if tranC != nil {
 		tranC <- tran
 	} else {
-		// FIXME: log error "unexpected accountId"
+		// FiXME: log "event after server closed"
 	}
 }
