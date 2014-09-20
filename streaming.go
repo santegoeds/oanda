@@ -16,10 +16,8 @@ package oanda
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 )
@@ -27,6 +25,7 @@ import (
 const (
 	defaultBufferSize   = 5
 	defaultStallTimeout = 10 * time.Second
+	maxDelay            = 5 * time.Minute
 )
 
 type (
@@ -34,12 +33,16 @@ type (
 	HeartbeatHandlerFunc func(time.Time)
 )
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// TimedReader
+
 type TimedReader struct {
 	Timeout time.Duration
 	io.ReadCloser
 	timer *time.Timer
 }
 
+// NewTimedReader returns an instance of TimedReader where Read operations time out.
 func NewTimedReader(r io.ReadCloser, timeout time.Duration) *TimedReader {
 	return &TimedReader{
 		Timeout:    timeout,
@@ -57,6 +60,9 @@ func (r *TimedReader) Read(p []byte) (int, error) {
 	r.timer.Stop()
 	return n, err
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// StreamMessage
 
 type StreamMessage struct {
 	Type       string
@@ -87,31 +93,60 @@ func (msg *StreamMessage) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type streamServer interface {
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// StreamHandler
+
+type StreamHandler interface {
 	HandleHeartbeat(time.Time)
 	HandleMessage(msgType string, rawMessage json.RawMessage)
 }
 
-type server struct {
-	ss     streamServer
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// StreamReader
+
+type StreamServer struct {
+	HandleMessageFn   MessageHandlerFunc
+	HandleHeartbeatFn HeartbeatHandlerFunc
+}
+
+func (ss StreamServer) HandleMessage(msgType string, msgData json.RawMessage) {
+	if ss.HandleMessageFn != nil {
+		ss.HandleMessageFn(msgType, msgData)
+	}
+}
+
+func (ss StreamServer) HandleHeartbeat(hb time.Time) {
+	if ss.HandleHeartbeatFn != nil {
+		ss.HandleHeartbeatFn(hb)
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MessageServer
+
+type MessageServer struct {
+	sh     StreamHandler
 	mtx    sync.Mutex
 	ctx    *Context
 	runFlg bool
 }
 
-func (c *Client) NewServer(u *url.URL, ss streamServer) (*server, error) {
+// NewMessageServer returns a new instance of MessageServer that forwards each message and
+// heartbeat to the specified StreamHandler.
+func (c *Client) NewMessageServer(u *url.URL, sh StreamHandler) (*MessageServer, error) {
 	ctx, err := c.newContext("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
-	s := server{
-		ss:  ss,
+	s := MessageServer{
+		sh:  sh,
 		ctx: ctx,
 	}
 	return &s, nil
 }
 
-func (s *server) Run() (err error) {
+// Run
+func (s *MessageServer) Run() (err error) {
 	if err = s.initServer(); err != nil {
 		return
 	}
@@ -123,14 +158,15 @@ func (s *server) Run() (err error) {
 	return
 }
 
-func (s *server) Stop() {
+// Stop stops the MessageServer.
+func (s *MessageServer) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.runFlg = false
 	s.ctx.CancelRequest()
 }
 
-func (s *server) initServer() error {
+func (s *MessageServer) initServer() error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if s.runFlg {
@@ -140,28 +176,12 @@ func (s *server) initServer() error {
 	return nil
 }
 
-const maxDelay = 5 * time.Minute
-
-func debugf(format interface{}, args ...interface{}) {
-	s, ok := format.(string)
-	if ok {
-		n := len(s)
-		if n > 0 && s[n-1] != '\n' {
-			format = s + "\n"
-		}
-		fmt.Fprintf(os.Stderr, s, args...)
-	} else {
-		args = append([]interface{}{format}, args)
-		fmt.Fprintln(os.Stderr, args...)
-	}
-}
-
-func (s *server) readMessages() error {
+func (s *MessageServer) readMessages() error {
 	hbC := make(chan time.Time)
 	defer close(hbC)
 	go func() {
 		for hb := range hbC {
-			s.ss.HandleHeartbeat(hb)
+			s.sh.HandleHeartbeat(hb)
 		}
 	}()
 
@@ -169,7 +189,7 @@ func (s *server) readMessages() error {
 	defer close(msgC)
 	go func() {
 		for msg := range msgC {
-			s.ss.HandleMessage(msg.Type, msg.RawMessage)
+			s.sh.HandleMessage(msg.Type, msg.RawMessage)
 		}
 	}()
 

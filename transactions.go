@@ -478,10 +478,110 @@ func (c *Client) FullTransactionHistory() (*url.URL, error) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // eventsServer
 
+type eventsServer struct {
+	HeartbeatFunc HeartbeatHandlerFunc
+	chanMap       *eventChans
+	srv           *MessageServer
+}
+
 type (
 	EventsHandlerFunc func(int, *Transaction)
 	AccountId         int
 )
+
+// NewEventsServer returns an events server to receive events for the specified accounts.
+//
+// If no accountId is specified then events for all accountIds are received.  Note that at
+// least one accountId is required for the sandbox environment.
+func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
+	u := c.getUrl("/v1/events", "stream")
+	q := u.Query()
+	optionalArgs(q).SetIntArray("accountIds", accountId)
+	u.RawQuery = q.Encode()
+
+	es := &eventsServer{
+		chanMap: newEventChans(accountId),
+	}
+
+	streamSrv := StreamServer{
+		HandleMessageFn:   es.handleMessage,
+		HandleHeartbeatFn: es.handleHeartbeat,
+	}
+
+	if s, err := c.NewMessageServer(u, streamSrv); err != nil {
+		return nil, err
+	} else {
+		es.srv = s
+	}
+
+	return es, nil
+}
+
+// Run starts the event server until Stop is called.  Function handleFn is called once for each
+// event that is received.
+//
+// See http://developer.oanda.com/docs/v1/stream/ and http://developer.oanda.com/docs/v1/transactions/
+// for further information.
+func (es *eventsServer) Run(handleFn EventsHandlerFunc) (err error) {
+	es.initServer(handleFn)
+	defer es.cleanupServer()
+	es.srv.Run()
+	return err
+}
+
+// Stop terminates the events server and causes Run to return.
+func (es *eventsServer) Stop() {
+	es.srv.Stop()
+}
+
+func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
+	for _, accId := range es.chanMap.AccountIds() {
+		tranC := make(chan *Transaction, defaultBufferSize)
+		es.chanMap.Set(accId, tranC)
+
+		go func(lclC <-chan *Transaction) {
+			for tran := range lclC {
+				handleFn(tran.AccountId(), tran)
+			}
+		}(tranC)
+	}
+	return
+}
+
+func (es *eventsServer) cleanupServer() {
+	for _, accId := range es.chanMap.AccountIds() {
+		tranC, _ := es.chanMap.Get(accId)
+		es.chanMap.Set(accId, nil)
+		if tranC != nil {
+			close(tranC)
+		}
+	}
+}
+
+func (es *eventsServer) handleHeartbeat(hb time.Time) {
+	if es.HeartbeatFunc != nil {
+		es.HeartbeatFunc(hb)
+	}
+}
+
+func (es *eventsServer) handleMessage(msgType string, rawMessage json.RawMessage) {
+	tran := &Transaction{}
+	if err := json.Unmarshal(rawMessage, tran); err != nil {
+		// FIXME: log message
+		return
+	}
+	tranC, ok := es.chanMap.Get(tran.AccountId())
+	if !ok {
+		// FIXME: log error "unexpected accountId"
+	} else if tranC != nil {
+		tranC <- tran
+	} else {
+		// FiXME: log "event after server closed"
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// private
 
 type eventChans struct {
 	mtx sync.RWMutex
@@ -518,92 +618,5 @@ func newEventChans(accountIds []int) *eventChans {
 	}
 	return &eventChans{
 		m: m,
-	}
-}
-
-type eventsServer struct {
-	HeartbeatFunc HeartbeatHandlerFunc
-	chanMap       *eventChans
-	srv           *server
-}
-
-func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
-	u := c.getUrl("/v1/events", "stream")
-	q := u.Query()
-	optionalArgs(q).SetIntArray("accountIds", accountId)
-	u.RawQuery = q.Encode()
-
-	es := &eventsServer{
-		chanMap: newEventChans(accountId),
-	}
-
-	streamSrv := StreamServer{
-		HandleMessageFn:   es.handleMessage,
-		HandleHeartbeatFn: es.handleHeartbeat,
-	}
-
-	if s, err := c.NewServer(u, streamSrv); err != nil {
-		return nil, err
-	} else {
-		es.srv = s
-	}
-
-	return es, nil
-}
-
-func (es *eventsServer) Run(handleFn EventsHandlerFunc) (err error) {
-	es.initServer(handleFn)
-	defer es.finish()
-	es.srv.Run()
-	return err
-}
-
-func (es *eventsServer) Stop() {
-	es.srv.Stop()
-}
-
-func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
-	for _, accId := range es.chanMap.AccountIds() {
-		tranC := make(chan *Transaction, defaultBufferSize)
-		es.chanMap.Set(accId, tranC)
-
-		go func(lclC <-chan *Transaction) {
-			for tran := range lclC {
-				handleFn(tran.AccountId(), tran)
-			}
-		}(tranC)
-	}
-	return
-}
-
-func (es *eventsServer) finish() {
-	for _, accId := range es.chanMap.AccountIds() {
-		tranC, _ := es.chanMap.Get(accId)
-		es.chanMap.Set(accId, nil)
-		if tranC != nil {
-			close(tranC)
-		}
-	}
-}
-
-func (es *eventsServer) handleHeartbeat(hb time.Time) {
-	if es.HeartbeatFunc != nil {
-		es.HeartbeatFunc(hb)
-	}
-}
-
-func (es *eventsServer) handleMessage(msgType string, rawMessage json.RawMessage) {
-	tran := &Transaction{}
-	if err := json.Unmarshal(rawMessage, tran); err != nil {
-		// FIXME: log message
-		return
-	}
-	tranC, ok := es.chanMap.Get(tran.AccountId())
-	if !ok {
-		// FIXME: log error "unexpected accountId"
-	} else if tranC != nil {
-		tranC <- tran
-	} else {
-		// FiXME: log "event after server closed"
 	}
 }

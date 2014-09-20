@@ -104,70 +104,15 @@ type instrumentTick struct {
 	PriceTick
 }
 
-type tickChans struct {
-	mtx sync.RWMutex
-	m   map[string]chan *instrumentTick
-}
-
-func (tc *tickChans) Instruments() []string {
-	tc.mtx.RLock()
-	defer tc.mtx.RUnlock()
-	instruments := make([]string, len(tc.m))
-	for instr := range tc.m {
-		instruments = append(instruments, instr)
-	}
-	return instruments
-}
-
-func (tc *tickChans) Set(instr string, ch chan *instrumentTick) {
-	tc.mtx.Lock()
-	defer tc.mtx.Unlock()
-	tc.m[instr] = ch
-}
-
-func (tc *tickChans) Get(instr string) (chan *instrumentTick, bool) {
-	tc.mtx.RLock()
-	defer tc.mtx.RUnlock()
-	ch, ok := tc.m[instr]
-	return ch, ok
-}
-
-func newTickChans(instruments []string) *tickChans {
-	m := make(map[string]chan *instrumentTick)
-	for _, instr := range instruments {
-		m[instr] = nil
-	}
-	return &tickChans{
-		m: m,
-	}
-}
-
 var tickPool = sync.Pool{
 	New: func() interface{} { return &instrumentTick{} },
 }
 
 type TickHandlerFunc func(instr string, pp PriceTick)
 
-type StreamServer struct {
-	HandleMessageFn   MessageHandlerFunc
-	HandleHeartbeatFn HeartbeatHandlerFunc
-}
-
-func (pss StreamServer) HandleMessage(msgType string, msgData json.RawMessage) {
-	if pss.HandleMessageFn != nil {
-		pss.HandleMessageFn(msgType, msgData)
-	}
-}
-
-func (pss StreamServer) HandleHeartbeat(hb time.Time) {
-	if pss.HandleHeartbeatFn != nil {
-		pss.HandleHeartbeatFn(hb)
-	}
-}
-
 type pricesServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
-	srv           *server
+	srv           *MessageServer
 	chanMap       *tickChans
 }
 
@@ -192,7 +137,7 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 		HandleHeartbeatFn: ps.handleHeartbeat,
 	}
 
-	if srv, err := c.NewServer(u, &streamSrv); err != nil {
+	if srv, err := c.NewMessageServer(u, &streamSrv); err != nil {
 		return nil, err
 	} else {
 		ps.srv = srv
@@ -256,5 +201,43 @@ func (ps *pricesServer) handleMessage(msgType string, rawMessage json.RawMessage
 		tickC <- tick
 	} else {
 		// FIXME: Log "tick after server closed"
+	}
+}
+
+type tickChans struct {
+	mtx sync.RWMutex
+	m   map[string]chan *instrumentTick
+}
+
+func (tc *tickChans) Instruments() []string {
+	tc.mtx.RLock()
+	defer tc.mtx.RUnlock()
+	instruments := make([]string, len(tc.m))
+	for instr := range tc.m {
+		instruments = append(instruments, instr)
+	}
+	return instruments
+}
+
+func (tc *tickChans) Set(instr string, ch chan *instrumentTick) {
+	tc.mtx.Lock()
+	defer tc.mtx.Unlock()
+	tc.m[instr] = ch
+}
+
+func (tc *tickChans) Get(instr string) (chan *instrumentTick, bool) {
+	tc.mtx.RLock()
+	defer tc.mtx.RUnlock()
+	ch, ok := tc.m[instr]
+	return ch, ok
+}
+
+func newTickChans(instruments []string) *tickChans {
+	m := make(map[string]chan *instrumentTick)
+	for _, instr := range instruments {
+		m[instr] = nil
+	}
+	return &tickChans{
+		m: m,
 	}
 }
