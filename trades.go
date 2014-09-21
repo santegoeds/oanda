@@ -121,12 +121,8 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 		arg.ApplyNewTradeArg(data)
 	}
 
-	urlPath := fmt.Sprintf("/v1/accounts/%d/orders", c.AccountId)
-	ctx, err := c.newContext("POST", c.getUrl(urlPath, "api"), data)
-	if err != nil {
-		return nil, err
-	}
-
+	// FIXME: Replace this with a TradeCreatedResponse that mimics the structure that is actually
+	// returned.
 	t := &Trade{
 		Side:       string(side),
 		Units:      units,
@@ -144,7 +140,9 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 		TradeOpened:  t,
 		TradeReduced: t,
 	}
-	if _, err = ctx.Decode(&rspData); err != nil {
+
+	urlStr := fmt.Sprintf("/v1/accounts/%d/orders", c.accountId)
+	if err := requestAndDecode(c, "POST", urlStr, data, &rspData); err != nil {
 		return nil, err
 	}
 
@@ -157,72 +155,58 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 
 // Trade returns an open trade.
 func (c *Client) Trade(tradeId int) (*Trade, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/trades/%d", c.AccountId, tradeId), "api")
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	t := struct {
 		ApiError
 		Trade
 	}{}
-	if _, err = ctx.Decode(&t); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
+	if err := getAndDecode(c, urlStr, &t); err != nil {
 		return nil, err
 	}
-
 	return &t.Trade, nil
 }
 
 // Trades returns a list of open trades that match the optional arguments.  Supported
 // optional arguments are MaxId(), Count(), Instrument() and Ids().
 func (c *Client) Trades(args ...TradesArg) (Trades, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/trades", c.AccountId), "api")
+	urlStr := fmt.Sprintf("/v1/accounts/%d/trades", c.accountId)
+
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
 	q := u.Query()
 	for _, arg := range args {
 		arg.ApplyTradesArg(q)
 	}
 	u.RawQuery = q.Encode()
-
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
+	urlStr = u.String()
 
 	rspData := struct {
 		ApiError
 		Trades Trades `json:"trades"`
 	}{}
-
-	if _, err = ctx.Decode(&rspData); err != nil {
+	if err = getAndDecode(c, urlStr, &rspData); err != nil {
 		return nil, err
 	}
-
 	return rspData.Trades, nil
 }
 
 // ModifyTrade modifies an open trade.  Supported optional arguments are StopLoss(),
 // TakeProfit(), TrailingStop()
-func (c *Client) ModifyTrade(tradeId int,
-	arg ModifyTradeArg, args ...ModifyTradeArg) (*Trade, error) {
-
+func (c *Client) ModifyTrade(tradeId int, arg ModifyTradeArg, args ...ModifyTradeArg) (*Trade, error) {
 	data := url.Values{}
 	arg.ApplyModifyTradeArg(data)
 	for _, arg := range args {
 		arg.ApplyModifyTradeArg(data)
 	}
-
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/trades/%d", c.AccountId, tradeId), "api")
-	ctx, err := c.newContext("PATCH", u, data)
-	if err != nil {
-		return nil, err
-	}
-
 	t := struct {
 		ApiError
 		Trade
 	}{}
-	if _, err = ctx.Decode(&t); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
+	if err := requestAndDecode(c, "PATCH", urlStr, data, &t); err != nil {
 		return nil, err
 	}
 
@@ -240,19 +224,13 @@ type CloseTradeResponse struct {
 
 // CloseTrade closes an open trade.
 func (c *Client) CloseTrade(tradeId int) (*CloseTradeResponse, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/trades/%d", c.AccountId, tradeId), "api")
-	ctx, err := c.newContext("DELETE", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	ctr := struct {
 		ApiError
 		CloseTradeResponse
 	}{}
-	if _, err = ctx.Decode(&ctr); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
+	if err := requestAndDecode(c, "DELETE", urlStr, nil, &ctr); err != nil {
 		return nil, err
 	}
-
 	return &ctr.CloseTradeResponse, nil
 }

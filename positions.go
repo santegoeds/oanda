@@ -46,36 +46,26 @@ type Positions []Position
 
 // Positions returns all positions for an account.
 func (c *Client) Positions() (Positions, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/positions", c.AccountId), "api")
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	rspData := struct {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/positions", c.accountId)
+	positions := struct {
 		ApiError
 		Positions Positions `json:"positions"`
 	}{}
-	if _, err = ctx.Decode(&rspData); err != nil {
+	if err := getAndDecode(c, urlStr, &positions); err != nil {
 		return nil, err
 	}
-	return rspData.Positions, nil
+	return positions.Positions, nil
 }
 
 // Position returns the position for an account and instrument.
 func (c *Client) Position(instrument string) (*Position, error) {
 	instrument = strings.ToUpper(instrument)
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/positions/%s", c.AccountId, instrument), "api")
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
+	urlStr := fmt.Sprintf("/v1/accounts/%d/positions/%s", c.accountId, instrument)
 	p := struct {
 		ApiError
 		Position
 	}{}
-	if _, err := ctx.Decode(&p); err != nil {
+	if err := getAndDecode(c, urlStr, &p); err != nil {
 		return nil, err
 	}
 	return &p.Position, nil
@@ -84,17 +74,12 @@ func (c *Client) Position(instrument string) (*Position, error) {
 // ClosePosition closes an existing position.
 func (c *Client) ClosePosition(instrument string) (*PositionCloseResponse, error) {
 	instrument = strings.ToUpper(instrument)
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/positions/%s", c.AccountId, instrument), "api")
-	ctx, err := c.newContext("DELETE", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	pcr := struct {
 		ApiError
 		PositionCloseResponse
 	}{}
-	if _, err = ctx.Decode(&pcr); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/positions/%s", c.accountId, instrument)
+	if err := requestAndDecode(c, "DELETE", urlStr, nil, &pcr); err != nil {
 		return nil, err
 	}
 	return &pcr.PositionCloseResponse, nil

@@ -57,23 +57,23 @@ func (ts *TestSuite) TestPollPricesSince(c *check.C) {
 	c.Assert(prices, check.HasLen, 1)
 }
 
-func (ts *TestSuite) TestPollPricesContext(c *check.C) {
-	ctx, err := ts.c.NewPollPricesContext(time.Time{}, "eur_usd", "eur_gbp")
+func (ts *TestSuite) TestPricePoller(c *check.C) {
+	pp, err := ts.c.NewPricePoller(time.Time{}, "eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
-	prices, err := ctx.Poll()
+	prices, err := pp.Poll()
 	c.Assert(err, check.IsNil)
 	c.Log(prices)
 	c.Assert(prices, check.HasLen, 2)
 
-	prices, err = ctx.Poll()
+	prices, err = pp.Poll()
 	c.Assert(err, check.IsNil)
 	c.Log(prices)
 	c.Assert(prices, check.HasLen, 2)
 }
 
 func (ts *TestSuite) TestPricesServer(c *check.C) {
-	ps, err := ts.c.NewPricesServer("eur_usd", "eur_gbp")
+	ps, err := ts.c.NewPriceServer("eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
 	timeout := 2 * time.Minute
@@ -83,7 +83,7 @@ func (ts *TestSuite) TestPricesServer(c *check.C) {
 	})
 
 	count := Counter{}
-	err = ps.Run(func(instrument string, tick oanda.PriceTick) {
+	err = ps.ConnectAndHandle(func(instrument string, tick oanda.PriceTick) {
 		c.Log(instrument, tick)
 		if count.Inc() > 3 {
 			ps.Stop()
@@ -96,9 +96,9 @@ func (ts *TestSuite) TestPricesServer(c *check.C) {
 }
 
 func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
-	ps, err := ts.c.NewPricesServer("gbp_eur")
+	ps, err := ts.c.NewPriceServer("gbp_eur")
 	c.Assert(err, check.IsNil)
-	err = ps.Run(func(in string, tick oanda.PriceTick) {
+	err = ps.ConnectAndHandle(func(in string, tick oanda.PriceTick) {
 		c.Fail()
 	})
 	c.Assert(err, check.NotNil)
@@ -106,7 +106,7 @@ func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
 }
 
 func (ts *TestSuite) TestPricesServerHeartbeat(c *check.C) {
-	ps, err := ts.c.NewPricesServer("gbp_aud")
+	ps, err := ts.c.NewPriceServer("gbp_aud")
 	c.Assert(err, check.IsNil)
 
 	ps.HeartbeatFunc = func(hb time.Time) {
@@ -114,7 +114,7 @@ func (ts *TestSuite) TestPricesServerHeartbeat(c *check.C) {
 		ps.Stop()
 	}
 
-	err = ps.Run(func(in string, tick oanda.PriceTick) {
+	err = ps.ConnectAndHandle(func(in string, tick oanda.PriceTick) {
 		c.Log(in, tick)
 	})
 	c.Assert(err, check.IsNil)

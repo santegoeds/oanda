@@ -412,24 +412,25 @@ func (ids Ids) ApplyTransactionsArg(v url.Values) {
 
 // Transactions returns an array of transactions.
 func (c *Client) Transactions(args ...TransactionsArg) (Transactions, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/transactions", c.AccountId), "api")
+	urlStr := fmt.Sprintf("/v1/accounts/%d/transactions", c.accountId)
+
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
 
 	data := u.Query()
 	for _, arg := range args {
 		arg.ApplyTransactionsArg(data)
 	}
 	u.RawQuery = data.Encode()
-
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
+	urlStr = u.String()
 
 	s := struct {
 		ApiError
 		Transactions Transactions `json:"transactions"`
 	}{}
-	if _, err := ctx.Decode(&s); err != nil {
+	if err = getAndDecode(c, urlStr, &s); err != nil {
 		return nil, err
 	}
 	return s.Transactions, nil
@@ -437,48 +438,43 @@ func (c *Client) Transactions(args ...TransactionsArg) (Transactions, error) {
 
 // Transaction returns data for a single transaction.
 func (c *Client) Transaction(tranId int) (*Transaction, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/transactions/%d", c.AccountId, tranId), "api")
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	tran := struct {
 		ApiError
 		Transaction
 	}{}
-	if _, err = ctx.Decode(&tran); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/transactions/%d", c.accountId, tranId)
+	if err := getAndDecode(c, urlStr, &tran); err != nil {
 		return nil, err
 	}
-
 	return &tran.Transaction, nil
 }
 
 // FullTransactionHistory returns a url from which a file containing the full transaction history
 // for the account can be downloaded.
 func (c *Client) FullTransactionHistory() (*url.URL, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/alltransactions", c.AccountId), "api")
-	ctx, err := c.newContext("GET", u, nil)
+	urlStr := fmt.Sprintf("/v1/accounts/%d/alltransactions", c.accountId)
+	req, err := c.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := ctx.Request(); err != nil {
-		return nil, err
-	}
-
-	tranUrl, err := ctx.Response().Location()
+	rsp, err := c.Do(req)
 	if err != nil {
 		return nil, err
 	}
-
+	// FIXME: Return the io.ReadCloser to the data instead of the location URL.  Might want to
+	// wrap that in a streamServer wrapper so that the request can be interrupted?
+	tranUrl, err := rsp.Location()
+	if err != nil {
+		return nil, err
+	}
 	return tranUrl, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// eventsServer
+// eventServer
 
-type eventsServer struct {
+type eventServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	chanMap       *eventChans
 	srv           *MessageServer
@@ -489,17 +485,22 @@ type (
 	AccountId         int
 )
 
-// NewEventsServer returns an events server to receive events for the specified accounts.
+// NewEventServer returns an events server to receive events for the specified accounts.
 //
 // If no accountId is specified then events for all accountIds are received.  Note that at
 // least one accountId is required for the sandbox environment.
-func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
-	u := c.getUrl("/v1/events", "stream")
-	q := u.Query()
-	optionalArgs(q).SetIntArray("accountIds", accountId)
-	u.RawQuery = q.Encode()
+func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
+	req, err := c.NewRequest("GET", "/v1/events", nil)
+	if err != nil {
+		return nil, err
+	}
+	useStreamHost(req)
 
-	es := &eventsServer{
+	q := req.URL.Query()
+	optionalArgs(q).SetIntArray("accountIds", accountId)
+	req.URL.RawQuery = q.Encode()
+
+	es := &eventServer{
 		chanMap: newEventChans(accountId),
 	}
 
@@ -508,7 +509,7 @@ func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
 		HandleHeartbeatFn: es.handleHeartbeat,
 	}
 
-	if s, err := c.NewMessageServer(u, streamSrv); err != nil {
+	if s, err := c.NewMessageServer(req, streamSrv); err != nil {
 		return nil, err
 	} else {
 		es.srv = s
@@ -517,24 +518,24 @@ func (c *Client) NewEventsServer(accountId ...int) (*eventsServer, error) {
 	return es, nil
 }
 
-// Run starts the event server until Stop is called.  Function handleFn is called once for each
-// event that is received.
+// ConnectAndDispatch starts the event server until Stop is called.  Function handleFn is called
+// for each event that is received.
 //
 // See http://developer.oanda.com/docs/v1/stream/ and http://developer.oanda.com/docs/v1/transactions/
 // for further information.
-func (es *eventsServer) Run(handleFn EventsHandlerFunc) (err error) {
+func (es *eventServer) ConnectAndHandle(handleFn EventsHandlerFunc) (err error) {
 	es.initServer(handleFn)
 	defer es.cleanupServer()
-	es.srv.Run()
+	es.srv.ConnectAndDispatch()
 	return err
 }
 
 // Stop terminates the events server and causes Run to return.
-func (es *eventsServer) Stop() {
+func (es *eventServer) Stop() {
 	es.srv.Stop()
 }
 
-func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
+func (es *eventServer) initServer(handleFn EventsHandlerFunc) {
 	for _, accId := range es.chanMap.AccountIds() {
 		tranC := make(chan *Transaction, defaultBufferSize)
 		es.chanMap.Set(accId, tranC)
@@ -548,7 +549,7 @@ func (es *eventsServer) initServer(handleFn EventsHandlerFunc) {
 	return
 }
 
-func (es *eventsServer) cleanupServer() {
+func (es *eventServer) cleanupServer() {
 	for _, accId := range es.chanMap.AccountIds() {
 		tranC, _ := es.chanMap.Get(accId)
 		es.chanMap.Set(accId, nil)
@@ -558,13 +559,13 @@ func (es *eventsServer) cleanupServer() {
 	}
 }
 
-func (es *eventsServer) handleHeartbeat(hb time.Time) {
+func (es *eventServer) handleHeartbeat(hb time.Time) {
 	if es.HeartbeatFunc != nil {
 		es.HeartbeatFunc(hb)
 	}
 }
 
-func (es *eventsServer) handleMessage(msgType string, rawMessage json.RawMessage) {
+func (es *eventServer) handleMessage(msgType string, rawMessage json.RawMessage) {
 	tran := &Transaction{}
 	if err := json.Unmarshal(rawMessage, tran); err != nil {
 		// FIXME: log message

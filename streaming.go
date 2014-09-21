@@ -17,7 +17,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net/url"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -126,27 +127,25 @@ func (ss StreamServer) HandleHeartbeat(hb time.Time) {
 
 type MessageServer struct {
 	sh     StreamHandler
+	c      *Client
 	mtx    sync.Mutex
-	ctx    *Context
+	req    *http.Request
 	runFlg bool
 }
 
 // NewMessageServer returns a new instance of MessageServer that forwards each message and
 // heartbeat to the specified StreamHandler.
-func (c *Client) NewMessageServer(u *url.URL, sh StreamHandler) (*MessageServer, error) {
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
+func (c *Client) NewMessageServer(req *http.Request, sh StreamHandler) (*MessageServer, error) {
 	s := MessageServer{
 		sh:  sh,
-		ctx: ctx,
+		c:   c,
+		req: req,
 	}
 	return &s, nil
 }
 
-// Run
-func (s *MessageServer) Run() (err error) {
+// ConnectAndDispatch
+func (s *MessageServer) ConnectAndDispatch() (err error) {
 	if err = s.initServer(); err != nil {
 		return
 	}
@@ -163,7 +162,7 @@ func (s *MessageServer) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.runFlg = false
-	s.ctx.CancelRequest()
+	cancelRequest(s)
 }
 
 func (s *MessageServer) initServer() error {
@@ -199,9 +198,9 @@ func (s *MessageServer) readMessages() error {
 			s.mtx.Lock()
 			runFlg := s.runFlg
 			if runFlg {
-				err = s.ctx.Request()
+				rsp, err := s.c.Do(s.req)
 				if err == nil {
-					rdr = NewTimedReader(s.ctx.Response().Body, defaultStallTimeout)
+					rdr = NewTimedReader(rsp.Body, defaultStallTimeout)
 				}
 			}
 			s.mtx.Unlock()
@@ -250,10 +249,25 @@ func (s *MessageServer) readMessages() error {
 					err = apiErr
 				}
 				// FIXME: log msg.AsApiError()
-				s.ctx.CancelRequest()
+				s.mtx.Lock()
+				cancelRequest(s)
+				s.mtx.Unlock()
 				break
 			}
 		}
 		rdr.Close()
 	}
+}
+
+func cancelRequest(s *MessageServer) {
+	if s.req != nil {
+		s.c.CancelRequest(s.req)
+	}
+}
+
+func useStreamHost(req *http.Request) {
+	u := req.URL
+	parts := strings.Split(u.Host, "-")
+	parts[0] = "stream"
+	u.Host = strings.Join(parts, "-")
 }

@@ -22,15 +22,23 @@ import (
 )
 
 type TestTranSuite struct {
-	c *oanda.Client
+	AccountId int
+	c         *oanda.Client
 }
 
 var _ = check.Suite(&TestTranSuite{})
 
 func (ts *TestTranSuite) SetUpTest(c *check.C) {
-	var err error
-	ts.c, err = newSandboxClientWithAccount()
+	client, err := oanda.NewSandboxClient()
 	c.Assert(err, check.IsNil)
+	ts.c = client
+
+	accs, err := client.Accounts()
+	c.Assert(err, check.IsNil)
+	c.Assert(accs, check.HasLen, 1)
+
+	ts.AccountId = accs[0].AccountId
+	ts.c.SelectAccount(ts.AccountId)
 }
 
 func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
@@ -82,8 +90,8 @@ func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
 	c.Check(tfTran1.Amount(), check.Equals, tfTran2.Amount())
 }
 
-func (ts *TestTranSuite) TestEventsServer(c *check.C) {
-	es, err := ts.c.NewEventsServer(ts.c.AccountId)
+func (ts *TestTranSuite) TestEventServer(c *check.C) {
+	es, err := ts.c.NewEventServer(ts.AccountId)
 	c.Assert(err, check.IsNil)
 
 	wg := sync.WaitGroup{}
@@ -97,7 +105,7 @@ func (ts *TestTranSuite) TestEventsServer(c *check.C) {
 
 	wg.Add(1)
 	go func() {
-		err := es.Run(func(accountId int, tran *oanda.Transaction) {
+		err := es.ConnectAndHandle(func(accountId int, tran *oanda.Transaction) {
 			c.Log(accountId, tran)
 
 			es.Stop()

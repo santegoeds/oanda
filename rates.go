@@ -55,13 +55,16 @@ const (
 )
 
 // Instruments returns the information of all instruments known to Oanda.
-func (c *Client) Instruments(instruments []string, fields []InstrumentField) (
-	map[string]InstrumentInfo, error) {
+func (c *Client) Instruments(instrs []string, fields []InstrumentField) (map[string]InstrumentInfo, error) {
 
-	u := c.getUrl("/v1/instruments", "api")
+	u, err := url.Parse("/v1/instruments")
+	if err != nil {
+		return nil, err
+	}
+
 	q := u.Query()
-	if len(instruments) > 0 {
-		q.Set("instruments", strings.Join(instruments, ","))
+	if len(instrs) > 0 {
+		q.Set("instruments", strings.Join(instrs, ","))
 	}
 	if len(fields) > 0 {
 		ss := make([]string, len(fields))
@@ -71,10 +74,6 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (
 		q.Set("fields", strings.Join(ss, ","))
 	}
 	u.RawQuery = q.Encode()
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
 
 	v := struct {
 		ApiError
@@ -83,7 +82,7 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (
 			InstrumentInfo
 		} `json:"instruments"`
 	}{}
-	if _, err = ctx.Decode(&v); err != nil {
+	if err = getAndDecode(c, u.String(), &v); err != nil {
 		return nil, err
 	}
 
@@ -201,7 +200,7 @@ type BidAskCandles struct {
 func (c *Client) MidpointCandles(instrument string, granularity Granularity,
 	args ...CandlesArg) (*MidpointCandles, error) {
 
-	ctx, err := c.newCandlesContext(instrument, granularity, "midpoint", args...)
+	u, err := c.newCandlesURL(instrument, granularity, "midpoint", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,10 +209,9 @@ func (c *Client) MidpointCandles(instrument string, granularity Granularity,
 		ApiError
 		MidpointCandles
 	}{}
-	if _, err = ctx.Decode(&candles); err != nil {
+	if err = getAndDecode(c, u.String(), &candles); err != nil {
 		return nil, err
 	}
-
 	return &candles.MidpointCandles, nil
 }
 
@@ -221,7 +219,7 @@ func (c *Client) MidpointCandles(instrument string, granularity Granularity,
 func (c *Client) BidAskCandles(instrument string, granularity Granularity,
 	args ...CandlesArg) (*BidAskCandles, error) {
 
-	ctx, err := c.newCandlesContext(instrument, granularity, "bidask", args...)
+	u, err := c.newCandlesURL(instrument, granularity, "bidask", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -230,23 +228,27 @@ func (c *Client) BidAskCandles(instrument string, granularity Granularity,
 		ApiError
 		BidAskCandles
 	}{}
-	if _, err = ctx.Decode(&candles); err != nil {
+	if err = getAndDecode(c, u.String(), &candles); err != nil {
 		return nil, err
 	}
-
 	return &candles.BidAskCandles, nil
 }
 
-func (c *Client) newCandlesContext(instrument string, granularity Granularity, candleFormat string,
-	args ...CandlesArg) (*Context, error) {
+func (c *Client) newCandlesURL(instrument string, granularity Granularity, candleFormat string,
+	args ...CandlesArg) (*url.URL, error) {
 
-	u := c.getUrl("/v1/candles", "api")
+	u, err := url.Parse("/v1/candles")
+	if err != nil {
+		return nil, err
+	}
+
 	q := u.Query()
 	q.Set("candleFormat", candleFormat)
+	q.Set("granularity", string(granularity))
 	for _, arg := range args {
 		arg.ApplyCandlesArg(q)
 	}
 	u.RawQuery = q.Encode()
 
-	return c.newContext("GET", u, nil)
+	return u, err
 }

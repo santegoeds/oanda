@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+type Prices map[string]PriceTick
+
 // PriceTick holds the Bid price, Ask price and status for an instrument at a given point
 // in time
 type PriceTick struct {
@@ -35,30 +37,57 @@ func (p *PriceTick) Spread() float64 {
 }
 
 // PollPrices returns the latest PriceTick for instruments.
-func (c *Client) PollPrices(instrument string, instruments ...string) (
-	map[string]PriceTick, error) {
-
+func (c *Client) PollPrices(instrument string, instruments ...string) (Prices, error) {
 	return c.PollPricesSince(time.Time{}, instrument, instruments...)
 }
 
 // PollPricesSince returns the PriceTicks for instruments.  If since is not the zero time
 // instruments whose prices were not updated since the requested time.Time are excluded from the
 // result.
-func (c *Client) PollPricesSince(since time.Time, instrument string, instruments ...string) (
-	map[string]PriceTick, error) {
-
-	ctx, err := c.NewPollPricesContext(since, instrument, instruments...)
+func (c *Client) PollPricesSince(since time.Time, instr string, instrs ...string) (Prices, error) {
+	pp, err := c.NewPricePoller(since, instr, instrs...)
 	if err != nil {
 		return nil, err
 	}
-	return ctx.Poll()
+	return pp.Poll()
 }
 
-type PollPricesContext struct {
-	ctx *Context
+type PricePoller struct {
+	pr         *PollRequest
+	lastPrices Prices
 }
 
-func (ppc *PollPricesContext) Poll() (map[string]PriceTick, error) {
+// NewPollPricesContext creates a context to repeatedly poll for PriceTicks using the same
+// args.
+func (c *Client) NewPricePoller(since time.Time, instr string, instrs ...string) (*PricePoller, error) {
+	instrs = append(instrs, instr)
+	req, err := c.NewRequest("GET", "/v1/prices", nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("instruments", strings.ToUpper(strings.Join(instrs, ",")))
+	if !since.IsZero() {
+		q.Set("since", since.UTC().Format(time.RFC3339))
+	}
+	req.URL.RawQuery = q.Encode()
+	pp := PricePoller{
+		pr:         &PollRequest{c, req},
+		lastPrices: make(Prices),
+	}
+	return &pp, err
+}
+
+func (pp *PricePoller) Poll() (Prices, error) {
+	rsp, err := pp.pr.Poll()
+	if err != nil {
+		return nil, err
+	}
+	defer rsp.Body.Close()
+	if rsp.ContentLength == 0 {
+		return pp.lastPrices, nil
+	}
+
 	v := struct {
 		ApiError
 		Prices []struct {
@@ -66,37 +95,16 @@ func (ppc *PollPricesContext) Poll() (map[string]PriceTick, error) {
 			PriceTick
 		} `json:"prices"`
 	}{}
-	if _, err := ppc.ctx.Decode(&v); err != nil {
+	dec := NewDecoder(rsp.Body)
+	if err = dec.Decode(&v); err != nil {
 		return nil, err
 	}
-
-	prices := make(map[string]PriceTick)
+	prices := make(Prices)
 	for _, p := range v.Prices {
 		prices[p.Instrument] = p.PriceTick
 	}
+	pp.lastPrices = prices
 	return prices, nil
-}
-
-// NewPollPricesContext creates a context to repeatedly poll for PriceTicks using the same
-// args.
-func (c *Client) NewPollPricesContext(since time.Time, instrument string, instruments ...string) (
-	*PollPricesContext, error) {
-
-	instruments = append(instruments, instrument)
-
-	u := c.getUrl("/v1/prices", "api")
-	q := u.Query()
-	q.Set("instruments", strings.ToUpper(strings.Join(instruments, ",")))
-	if !since.IsZero() {
-		q.Set("since", since.UTC().Format(time.RFC3339))
-	}
-	u.RawQuery = q.Encode()
-
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &PollPricesContext{ctx}, nil
 }
 
 type instrumentTick struct {
@@ -110,26 +118,28 @@ var tickPool = sync.Pool{
 
 type TickHandlerFunc func(instr string, pp PriceTick)
 
-type pricesServer struct {
+type priceServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	srv           *MessageServer
 	chanMap       *tickChans
 }
 
 // NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
-func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pricesServer, error) {
-	instruments = append(instruments, instrument)
-	for i := range instruments {
-		instruments[i] = strings.ToUpper(instruments[i])
+func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, error) {
+	instrs = append(instrs, instr)
+	req, err := c.NewRequest("GET", "/v1/prices", nil)
+	if err != nil {
+		return nil, err
 	}
+	useStreamHost(req)
 
-	u := c.getUrl("/v1/prices", "stream")
+	u := req.URL
 	q := u.Query()
-	q.Set("instruments", strings.Join(instruments, ","))
+	q.Set("instruments", strings.ToUpper(strings.Join(instrs, ",")))
 	u.RawQuery = q.Encode()
 
-	ps := pricesServer{
-		chanMap: newTickChans(instruments),
+	ps := priceServer{
+		chanMap: newTickChans(instrs),
 	}
 
 	streamSrv := StreamServer{
@@ -137,7 +147,7 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 		HandleHeartbeatFn: ps.handleHeartbeat,
 	}
 
-	if srv, err := c.NewMessageServer(u, &streamSrv); err != nil {
+	if srv, err := c.NewMessageServer(req, &streamSrv); err != nil {
 		return nil, err
 	} else {
 		ps.srv = srv
@@ -146,18 +156,18 @@ func (c *Client) NewPricesServer(instrument string, instruments ...string) (*pri
 	return &ps, nil
 }
 
-func (ps *pricesServer) Run(handleFn TickHandlerFunc) error {
+func (ps *priceServer) ConnectAndHandle(handleFn TickHandlerFunc) error {
 	ps.initServer(handleFn)
-	err := ps.srv.Run()
+	err := ps.srv.ConnectAndDispatch()
 	ps.finish()
 	return err
 }
 
-func (ps *pricesServer) Stop() {
+func (ps *priceServer) Stop() {
 	ps.srv.Stop()
 }
 
-func (ps *pricesServer) initServer(handleFn TickHandlerFunc) {
+func (ps *priceServer) initServer(handleFn TickHandlerFunc) {
 	for _, instr := range ps.chanMap.Instruments() {
 		tickC := make(chan *instrumentTick, defaultBufferSize)
 		ps.chanMap.Set(instr, tickC)
@@ -171,7 +181,7 @@ func (ps *pricesServer) initServer(handleFn TickHandlerFunc) {
 	}
 }
 
-func (ps *pricesServer) finish() {
+func (ps *priceServer) finish() {
 	for _, instr := range ps.chanMap.Instruments() {
 		tickC, ok := ps.chanMap.Get(instr)
 		if ok && tickC != nil {
@@ -181,13 +191,13 @@ func (ps *pricesServer) finish() {
 	}
 }
 
-func (ps *pricesServer) handleHeartbeat(hb time.Time) {
+func (ps *priceServer) handleHeartbeat(hb time.Time) {
 	if ps.HeartbeatFunc != nil {
 		ps.HeartbeatFunc(hb)
 	}
 }
 
-func (ps *pricesServer) handleMessage(msgType string, rawMessage json.RawMessage) {
+func (ps *priceServer) handleMessage(msgType string, rawMessage json.RawMessage) {
 	tick := tickPool.Get().(*instrumentTick)
 	if err := json.Unmarshal(rawMessage, tick); err != nil {
 		ps.Stop()

@@ -106,7 +106,6 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 		OrderType:  string(orderType),
 		Expiry:     expiry,
 	}
-
 	data := url.Values{
 		"type":       {string(orderType)},
 		"side":       {string(side)},
@@ -115,7 +114,6 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 		"price":      {strconv.FormatFloat(price, 'f', -1, 64)},
 		"expiry":     {expiry.UTC().Format(time.RFC3339)},
 	}
-
 	for _, arg := range args {
 		arg.ApplyNewOrderArg(data)
 	}
@@ -129,36 +127,24 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 	}{
 		OrderOpened: &o,
 	}
-
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/orders", c.AccountId), "api")
-	ctx, err := c.newContext("POST", u, data)
-	if err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/orders", c.accountId)
+	if err := requestAndDecode(c, "POST", urlStr, data, &rspData); err != nil {
 		return nil, err
 	}
-	if _, err = ctx.Decode(&rspData); err != nil {
-		return nil, err
-	}
-
 	o.Instrument = rspData.Instrument
 	o.Time = rspData.Time
 	o.Price = rspData.Price
-
 	return &o, nil
 }
 
 // Order returns information for an existing order.
 func (c *Client) Order(orderId int) (*Order, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/orders/%d", c.AccountId, orderId), "api")
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	o := struct {
 		ApiError
 		Order
 	}{}
-	if _, err = ctx.Decode(&o); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
+	if err := getAndDecode(c, urlStr, &o); err != nil {
 		return nil, err
 	}
 	return &o.Order, nil
@@ -188,25 +174,25 @@ func (in Instrument) ApplyOrdersArg(v url.Values) {
 
 // Orders returns an array with all orders that match the optional arguments (if any).
 func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/orders", c.AccountId), "api")
+	u, err := url.Parse(fmt.Sprintf("/v1/accounts/%d/orders", c.accountId))
+	if err != nil {
+		return nil, err
+	}
+
 	q := u.Query()
 	for _, arg := range args {
 		arg.ApplyOrdersArg(q)
 	}
 	u.RawQuery = q.Encode()
 
-	rspData := struct {
+	rsp := struct {
 		ApiError
 		Orders Orders `json:"orders"`
 	}{}
-	ctx, err := c.newContext("GET", u, nil)
-	if err != nil {
+	if err := getAndDecode(c, u.String(), &rsp); err != nil {
 		return nil, err
 	}
-	if _, err = ctx.Decode(&rspData); err != nil {
-		return nil, err
-	}
-	return rspData.Orders, nil
+	return rsp.Orders, nil
 }
 
 type (
@@ -252,29 +238,20 @@ func (ts TrailingStop) ApplyModifyOrderArg(v url.Values) {
 }
 
 // ModifyOrder updates an open order.
-func (c *Client) ModifyOrder(orderId int,
-	arg ModifyOrderArg, args ...ModifyOrderArg) (*Order, error) {
-
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/orders/%d", c.AccountId, orderId), "api")
-
+func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrderArg) (*Order, error) {
 	data := url.Values{}
 	arg.ApplyModifyOrderArg(data)
 	for _, arg = range args {
 		arg.ApplyModifyOrderArg(data)
 	}
-	ctx, err := c.newContext("PATCH", u, data)
-	if err != nil {
-		return nil, err
-	}
-
 	o := struct {
 		ApiError
 		Order
 	}{}
-	if _, err = ctx.Decode(&o); err != nil {
+	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
+	if err := requestAndDecode(c, "PATCH", urlStr, data, &o); err != nil {
 		return nil, err
 	}
-
 	return &o.Order, nil
 }
 
@@ -289,17 +266,12 @@ type CancelOrderResponse struct {
 
 // CancelOrder closes an open order.
 func (c *Client) CancelOrder(orderId int) (*CancelOrderResponse, error) {
-	u := c.getUrl(fmt.Sprintf("/v1/accounts/%d/orders/%d", c.AccountId, orderId), "api")
-	ctx, err := c.newContext("DELETE", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
+	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
 	cor := struct {
 		ApiError
 		CancelOrderResponse
 	}{}
-	if _, err = ctx.Decode(&cor); err != nil {
+	if err := requestAndDecode(c, "DELETE", urlStr, nil, &cor); err != nil {
 		return nil, err
 	}
 	return &cor.CancelOrderResponse, nil
