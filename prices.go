@@ -152,8 +152,8 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 	}
 
 	streamSrv := StreamServer{
-		HandleMessagesFn:   ps.handleMessages,
-		HandleHeartbeatsFn: ps.handleHeartbeats,
+		handleMessagesFn:   ps.handleMessages,
+		handleHeartbeatsFn: ps.handleHeartbeats,
 	}
 
 	if srv, err := c.NewMessageServer(req, &streamSrv); err != nil {
@@ -210,10 +210,9 @@ func (ps *priceServer) handleMessages(msgC <-chan StreamMessage) {
 			// FIXME: Log error "unexpected instrument"
 		} else if tickC != nil {
 			tickC <- tick
-		} else {
-			// FIXME: Log "tick after server closed"
 		}
 	}
+
 	for _, instr := range ps.chanMap.Instruments() {
 		tickC, ok := ps.chanMap.Get(instr)
 		if ok && tickC != nil {

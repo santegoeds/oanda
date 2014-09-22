@@ -476,8 +476,8 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 	}
 
 	streamSrv := StreamServer{
-		HandleMessagesFn:   es.handleMessages,
-		HandleHeartbeatsFn: es.handleHeartbeats,
+		handleMessagesFn:   es.handleMessages,
+		handleHeartbeatsFn: es.handleHeartbeats,
 	}
 
 	if s, err := c.NewMessageServer(req, streamSrv); err != nil {

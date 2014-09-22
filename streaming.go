@@ -32,8 +32,8 @@ const (
 
 type (
 	HeartbeatHandlerFunc  func(time.Time)
-	MessagesHandlerFunc   func(<-chan StreamMessage)
-	HeartbeatsHandlerFunc func(<-chan time.Time)
+	messagesHandlerFunc   func(<-chan StreamMessage)
+	heartbeatsHandlerFunc func(<-chan time.Time)
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -112,19 +112,19 @@ type StreamHandler interface {
 // StreamReader
 
 type StreamServer struct {
-	HandleMessagesFn   MessagesHandlerFunc
-	HandleHeartbeatsFn HeartbeatsHandlerFunc
+	handleMessagesFn   messagesHandlerFunc
+	handleHeartbeatsFn heartbeatsHandlerFunc
 }
 
 func (ss StreamServer) HandleMessages(msgC <-chan StreamMessage) {
-	if ss.HandleMessagesFn != nil {
-		ss.HandleMessagesFn(msgC)
+	if ss.handleMessagesFn != nil {
+		ss.handleMessagesFn(msgC)
 	}
 }
 
 func (ss StreamServer) HandleHeartbeats(hbC <-chan time.Time) {
-	if ss.HandleHeartbeatsFn != nil {
-		ss.HandleHeartbeatsFn(hbC)
+	if ss.handleHeartbeatsFn != nil {
+		ss.handleHeartbeatsFn(hbC)
 	}
 }
 
