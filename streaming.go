@@ -16,6 +16,7 @@ package oanda
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -68,6 +69,10 @@ func (r *TimedReader) Read(p []byte) (int, error) {
 type StreamMessage struct {
 	Type       string
 	RawMessage json.RawMessage
+}
+
+func (msg *StreamMessage) String() string {
+	return fmt.Sprintf("StreamMessage{%s, %s}", msg.Type, string(msg.RawMessage))
 }
 
 func (msg *StreamMessage) UnmarshalJSON(data []byte) error {

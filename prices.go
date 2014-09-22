@@ -57,8 +57,8 @@ type PricePoller struct {
 	lastPrices Prices
 }
 
-// NewPollPricesContext creates a context to repeatedly poll for PriceTicks using the same
-// args.
+// NewPricePoller returns a poller to effeciently poll Oanda for updates of the same set of
+// instruments.
 func (c *Client) NewPricePoller(since time.Time, instr string, instrs ...string) (*PricePoller, error) {
 	instrs = append(instrs, instr)
 	req, err := c.NewRequest("GET", "/v1/prices", nil)
@@ -78,6 +78,8 @@ func (c *Client) NewPricePoller(since time.Time, instr string, instrs ...string)
 	return &pp, err
 }
 
+// Poll returns the most recent set of prices for the instruments with which the PricePoller
+// was configured.
 func (pp *PricePoller) Poll() (Prices, error) {
 	rsp, err := pp.pr.Poll()
 	if err != nil {
@@ -118,15 +120,22 @@ var tickPool = sync.Pool{
 
 type TickHandlerFunc func(instr string, pp PriceTick)
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// priceServer
+
 type priceServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	srv           *MessageServer
 	chanMap       *tickChans
 }
 
-// NewPricesServer creates a pricesServer to receive and handle PriceTicks from the Oanda server.
+// NewPriceServer creates a Price Server for receiving and handling Ticks.
 func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, error) {
 	instrs = append(instrs, instr)
+	for i, instr := range instrs {
+		instrs[i] = strings.ToUpper(instr)
+	}
+
 	req, err := c.NewRequest("GET", "/v1/prices", nil)
 	if err != nil {
 		return nil, err
@@ -135,7 +144,7 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 
 	u := req.URL
 	q := u.Query()
-	q.Set("instruments", strings.ToUpper(strings.Join(instrs, ",")))
+	q.Set("instruments", strings.Join(instrs, ","))
 	u.RawQuery = q.Encode()
 
 	ps := priceServer{
@@ -156,6 +165,7 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 	return &ps, nil
 }
 
+// ConnectAndHandle connects to the Oanda server and invokes handleFn for every Tick received.
 func (ps *priceServer) ConnectAndHandle(handleFn TickHandlerFunc) error {
 	ps.initServer(handleFn)
 	err := ps.srv.ConnectAndDispatch()
@@ -163,6 +173,7 @@ func (ps *priceServer) ConnectAndHandle(handleFn TickHandlerFunc) error {
 	return err
 }
 
+// Stop terminates the Price server.
 func (ps *priceServer) Stop() {
 	ps.srv.Stop()
 }

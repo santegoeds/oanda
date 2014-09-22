@@ -72,7 +72,7 @@ func (ts *TestSuite) TestPricePoller(c *check.C) {
 	c.Assert(prices, check.HasLen, 2)
 }
 
-func (ts *TestSuite) TestPricesServer(c *check.C) {
+func (ts *TestSuite) TestPriceServer(c *check.C) {
 	ps, err := ts.c.NewPriceServer("eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
@@ -95,7 +95,7 @@ func (ts *TestSuite) TestPricesServer(c *check.C) {
 	c.Assert(count.Val() > 3, check.Equals, true)
 }
 
-func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
+func (ts *TestSuite) TestPriceServerInvalidInstrument(c *check.C) {
 	ps, err := ts.c.NewPriceServer("gbp_eur")
 	c.Assert(err, check.IsNil)
 	err = ps.ConnectAndHandle(func(in string, tick oanda.PriceTick) {
@@ -105,7 +105,7 @@ func (ts *TestSuite) TestPricesServerInvalidInstrument(c *check.C) {
 	c.Log(err)
 }
 
-func (ts *TestSuite) TestPricesServerHeartbeat(c *check.C) {
+func (ts *TestSuite) TestPriceServerHeartbeat(c *check.C) {
 	ps, err := ts.c.NewPriceServer("gbp_aud")
 	c.Assert(err, check.IsNil)
 
