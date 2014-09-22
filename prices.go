@@ -152,8 +152,8 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 	}
 
 	streamSrv := StreamServer{
-		HandleMessageFn:   ps.handleMessage,
-		HandleHeartbeatFn: ps.handleHeartbeat,
+		HandleMessagesFn:   ps.handleMessages,
+		HandleHeartbeatsFn: ps.handleHeartbeats,
 	}
 
 	if srv, err := c.NewMessageServer(req, &streamSrv); err != nil {
@@ -168,9 +168,7 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 // ConnectAndHandle connects to the Oanda server and invokes handleFn for every Tick received.
 func (ps *priceServer) ConnectAndHandle(handleFn TickHandlerFunc) error {
 	ps.initServer(handleFn)
-	err := ps.srv.ConnectAndDispatch()
-	ps.finish()
-	return err
+	return ps.srv.ConnectAndDispatch()
 }
 
 // Stop terminates the Price server.
@@ -192,36 +190,36 @@ func (ps *priceServer) initServer(handleFn TickHandlerFunc) {
 	}
 }
 
-func (ps *priceServer) finish() {
+func (ps *priceServer) handleHeartbeats(hbC <-chan time.Time) {
+	for hb := range hbC {
+		if ps.HeartbeatFunc != nil {
+			ps.HeartbeatFunc(hb)
+		}
+	}
+}
+
+func (ps *priceServer) handleMessages(msgC <-chan StreamMessage) {
+	for msg := range msgC {
+		tick := tickPool.Get().(*instrumentTick)
+		if err := json.Unmarshal(msg.RawMessage, tick); err != nil {
+			ps.Stop()
+			return
+		}
+		tickC, ok := ps.chanMap.Get(tick.Instrument)
+		if !ok {
+			// FIXME: Log error "unexpected instrument"
+		} else if tickC != nil {
+			tickC <- tick
+		} else {
+			// FIXME: Log "tick after server closed"
+		}
+	}
 	for _, instr := range ps.chanMap.Instruments() {
 		tickC, ok := ps.chanMap.Get(instr)
 		if ok && tickC != nil {
 			ps.chanMap.Set(instr, nil)
 			close(tickC)
 		}
-	}
-}
-
-func (ps *priceServer) handleHeartbeat(hb time.Time) {
-	if ps.HeartbeatFunc != nil {
-		ps.HeartbeatFunc(hb)
-	}
-}
-
-func (ps *priceServer) handleMessage(msgType string, rawMessage json.RawMessage) {
-	tick := tickPool.Get().(*instrumentTick)
-	if err := json.Unmarshal(rawMessage, tick); err != nil {
-		ps.Stop()
-		return
-	}
-
-	tickC, ok := ps.chanMap.Get(tick.Instrument)
-	if !ok {
-		// FIXME: Log error "unexpected instrument"
-	} else if tickC != nil {
-		tickC <- tick
-	} else {
-		// FIXME: Log "tick after server closed"
 	}
 }
 

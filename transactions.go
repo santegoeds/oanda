@@ -476,8 +476,8 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 	}
 
 	streamSrv := StreamServer{
-		HandleMessageFn:   es.handleMessage,
-		HandleHeartbeatFn: es.handleHeartbeat,
+		HandleMessagesFn:   es.handleMessages,
+		HandleHeartbeatsFn: es.handleHeartbeats,
 	}
 
 	if s, err := c.NewMessageServer(req, streamSrv); err != nil {
@@ -496,9 +496,7 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 // for further information.
 func (es *eventServer) ConnectAndHandle(handleFn EventsHandlerFunc) (err error) {
 	es.initServer(handleFn)
-	defer es.cleanupServer()
-	es.srv.ConnectAndDispatch()
-	return err
+	return es.srv.ConnectAndDispatch()
 }
 
 // Stop terminates the events server and causes Run to return.
@@ -520,43 +518,45 @@ func (es *eventServer) initServer(handleFn EventsHandlerFunc) {
 	return
 }
 
-func (es *eventServer) cleanupServer() {
+func (es *eventServer) handleHeartbeats(hbC <-chan time.Time) {
+	for hb := range hbC {
+		if es.HeartbeatFunc != nil {
+			es.HeartbeatFunc(hb)
+		}
+	}
+}
+
+func (es *eventServer) handleMessages(msgC <-chan StreamMessage) {
+	for msg := range msgC {
+		rawEvent := struct {
+			*evtHeaderContent
+			*evtBody
+		}{}
+		if err := json.Unmarshal(msg.RawMessage, &rawEvent); err != nil {
+			// FIXME: log message
+			return
+		}
+		evt, err := asEvent(rawEvent.evtHeaderContent, rawEvent.evtBody)
+		if err != nil {
+			// FIXME: Log error
+			return
+		}
+		evtC, ok := es.chanMap.Get(evt.AccountId())
+		if !ok {
+			// FIXME: log error "unexpected accountId"
+		} else if evtC != nil {
+			evtC <- evt
+		} else {
+			// FiXME: log "event after server closed"
+		}
+	}
+
 	for _, accId := range es.chanMap.AccountIds() {
 		evtC, _ := es.chanMap.Get(accId)
 		es.chanMap.Set(accId, nil)
 		if evtC != nil {
 			close(evtC)
 		}
-	}
-}
-
-func (es *eventServer) handleHeartbeat(hb time.Time) {
-	if es.HeartbeatFunc != nil {
-		es.HeartbeatFunc(hb)
-	}
-}
-
-func (es *eventServer) handleMessage(msgType string, rawMessage json.RawMessage) {
-	rawEvent := struct {
-		*evtHeaderContent
-		*evtBody
-	}{}
-	if err := json.Unmarshal(rawMessage, &rawEvent); err != nil {
-		// FIXME: log message
-		return
-	}
-	evt, err := asEvent(rawEvent.evtHeaderContent, rawEvent.evtBody)
-	if err != nil {
-		// FIXME: Log error
-		return
-	}
-	evtC, ok := es.chanMap.Get(evt.AccountId())
-	if !ok {
-		// FIXME: log error "unexpected accountId"
-	} else if evtC != nil {
-		evtC <- evt
-	} else {
-		// FiXME: log "event after server closed"
 	}
 }
 

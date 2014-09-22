@@ -31,8 +31,9 @@ const (
 )
 
 type (
-	MessageHandlerFunc   func(string, json.RawMessage)
-	HeartbeatHandlerFunc func(time.Time)
+	HeartbeatHandlerFunc  func(time.Time)
+	MessagesHandlerFunc   func(<-chan StreamMessage)
+	HeartbeatsHandlerFunc func(<-chan time.Time)
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,27 +104,27 @@ func (msg *StreamMessage) UnmarshalJSON(data []byte) error {
 // StreamHandler
 
 type StreamHandler interface {
-	HandleHeartbeat(time.Time)
-	HandleMessage(msgType string, rawMessage json.RawMessage)
+	HandleHeartbeats(<-chan time.Time)
+	HandleMessages(<-chan StreamMessage)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // StreamReader
 
 type StreamServer struct {
-	HandleMessageFn   MessageHandlerFunc
-	HandleHeartbeatFn HeartbeatHandlerFunc
+	HandleMessagesFn   MessagesHandlerFunc
+	HandleHeartbeatsFn HeartbeatsHandlerFunc
 }
 
-func (ss StreamServer) HandleMessage(msgType string, msgData json.RawMessage) {
-	if ss.HandleMessageFn != nil {
-		ss.HandleMessageFn(msgType, msgData)
+func (ss StreamServer) HandleMessages(msgC <-chan StreamMessage) {
+	if ss.HandleMessagesFn != nil {
+		ss.HandleMessagesFn(msgC)
 	}
 }
 
-func (ss StreamServer) HandleHeartbeat(hb time.Time) {
-	if ss.HandleHeartbeatFn != nil {
-		ss.HandleHeartbeatFn(hb)
+func (ss StreamServer) HandleHeartbeats(hbC <-chan time.Time) {
+	if ss.HandleHeartbeatsFn != nil {
+		ss.HandleHeartbeatsFn(hbC)
 	}
 }
 
@@ -183,19 +184,11 @@ func (s *MessageServer) initServer() error {
 func (s *MessageServer) readMessages() error {
 	hbC := make(chan time.Time)
 	defer close(hbC)
-	go func() {
-		for hb := range hbC {
-			s.sh.HandleHeartbeat(hb)
-		}
-	}()
+	go s.sh.HandleHeartbeats(hbC)
 
 	msgC := make(chan StreamMessage)
 	defer close(msgC)
-	go func() {
-		for msg := range msgC {
-			s.sh.HandleMessage(msg.Type, msg.RawMessage)
-		}
-	}()
+	go s.sh.HandleMessages(msgC)
 
 	newReader := func() (rdr io.ReadCloser, err error) {
 		d := time.Second
