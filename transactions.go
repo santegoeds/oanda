@@ -22,211 +22,129 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Unified transaction
+// Events
 
-type tranTradeDetailData struct {
+type evtTradeDetailData struct {
 	TradeId  int     `json:"id"`
 	Units    int     `json:"units"`
 	Pl       float64 `json:"pl"`
 	Interest float64 `json:"interest"`
 }
 
-type tranTradeDetail struct{ data *tranTradeDetailData }
+type evtTradeDetail struct{ content *evtTradeDetailData }
 
-func (td *tranTradeDetail) TradeId() int      { return td.data.TradeId }
-func (td *tranTradeDetail) Units() int        { return td.data.Units }
-func (td *tranTradeDetail) Pl() float64       { return td.data.Pl }
-func (td *tranTradeDetail) Interest() float64 { return td.data.Interest }
+func (td *evtTradeDetail) TradeId() int      { return td.content.TradeId }
+func (td *evtTradeDetail) Units() int        { return td.content.Units }
+func (td *evtTradeDetail) Pl() float64       { return td.content.Pl }
+func (td *evtTradeDetail) Interest() float64 { return td.content.Interest }
 
-type tranData struct {
-	TranId                   int                  `json:"id"`
-	AccountId                int                  `json:"accountId"`
-	Time                     time.Time            `json:"time"`
-	Type                     string               `json:"type"`
-	Instrument               string               `json:"instrument"`
-	Side                     string               `json:"side"`
-	Units                    int                  `json:"units"`
-	Price                    float64              `json:"price"`
-	Expiry                   time.Time            `json:"expiry"`
-	Reason                   string               `json:"reason"`
-	LowerBound               float64              `json:"lowerBound"`
-	UpperBound               float64              `json:"upperBound"`
-	TakeProfitPrice          float64              `json:"takeProfitPrice"`
-	StopLossPrice            float64              `json:"stopLossPrice"`
-	TrailingStopLossDistance float64              `json:"trailingStopLossDistance"`
-	Pl                       float64              `json:"pl"`
-	Interest                 float64              `json:"interest"`
-	AccountBalance           float64              `json:"accountBalance"`
-	Rate                     float64              `json:"rate"`
-	Amount                   float64              `json:"amount"`
-	TradeId                  int                  `json:"tradeId"`
-	OrderId                  int                  `json:"orderId"`
-	TradeOpened              *tranTradeDetailData `json:"tradeOpened"`
-	TradeReduced             *tranTradeDetailData `json:"tradeReduced"`
-	HomeCurrency             string               `json:"homeCurrency"`
+type evtHeaderContent struct {
+	TranId    int       `json:"id"`
+	AccountId int       `json:"accountId"`
+	Time      time.Time `json:"time"`
+	Type      string    `json:"type"`
 }
 
-type Transaction struct{ data tranData }
+type evtHeader struct {
+	content *evtHeaderContent
+}
 
-// TranId returns the transaction id for the transaction.
-func (t *Transaction) TranId() int { return t.data.TranId }
+type evtBody struct {
+	Instrument               string              `json:"instrument"`
+	Side                     string              `json:"side"`
+	Units                    int                 `json:"units"`
+	Price                    float64             `json:"price"`
+	Expiry                   time.Time           `json:"expiry"`
+	Reason                   string              `json:"reason"`
+	LowerBound               float64             `json:"lowerBound"`
+	UpperBound               float64             `json:"upperBound"`
+	TakeProfitPrice          float64             `json:"takeProfitPrice"`
+	StopLossPrice            float64             `json:"stopLossPrice"`
+	TrailingStopLossDistance float64             `json:"trailingStopLossDistance"`
+	Pl                       float64             `json:"pl"`
+	Interest                 float64             `json:"interest"`
+	AccountBalance           float64             `json:"accountBalance"`
+	Rate                     float64             `json:"rate"`
+	Amount                   float64             `json:"amount"`
+	TradeId                  int                 `json:"tradeId"`
+	OrderId                  int                 `json:"orderId"`
+	TradeOpened              *evtTradeDetailData `json:"tradeOpened"`
+	TradeReduced             *evtTradeDetailData `json:"tradeReduced"`
+	HomeCurrency             string              `json:"homeCurrency"`
+}
 
-// AccountId returns the account id where the transaction occurred.
-func (t *Transaction) AccountId() int { return t.data.AccountId }
+type Event interface {
+	TranId() int
+	AccountId() int
+	Time() time.Time
+	Type() string
+}
 
-// Time returns the time at which the transaction occurred.
-func (t *Transaction) Time() time.Time { return t.data.Time }
+// TranId returns the transaction id for the event.
+func (t evtHeader) TranId() int { return t.content.TranId }
+
+// AccountId returns the account id where the event occurred.
+func (t evtHeader) AccountId() int { return t.content.AccountId }
+
+// Time returns the time at which the event occurred.
+func (t evtHeader) Time() time.Time { return t.content.Time }
+
+// Type returns the transaction type.
+func (t evtHeader) Type() string { return t.content.Type }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
-func (t *Transaction) UnmarshalJSON(data []byte) (err error) {
-	return json.Unmarshal(data, &t.data)
+func (t evtHeader) UnmarshalJSON(data []byte) (err error) {
+	return json.Unmarshal(data, &t.content)
 }
 
 // String implementes the Stringer interface.
-func (t *Transaction) String() string {
-	return fmt.Sprintf("transaction{TranId: %d, AccountId: %d Type: %s}",
+func (t evtHeader) String() string {
+	return fmt.Sprintf("Event{TranId: %d, AccountId: %d Type: %s}",
 		t.TranId(), t.AccountId(), t.Type())
-}
-
-// Type returns the transaction type.
-func (t *Transaction) Type() string { return t.data.Type }
-
-func (t *Transaction) AsAccountCreate() (*tranAccountCreate, bool) {
-	if t.Type() == "CREATE" {
-		return &tranAccountCreate{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsTradeCreate() (*tranTradeCreate, bool) {
-	switch t.Type() {
-	case "MARKET_ORDER_CREATE", "ORDER_FILLED":
-		return &tranTradeCreate{t}, true
-	}
-	return nil, false
-}
-
-// AsOrderCreate returns an OrderCreate transaction instance to provide access to
-// transaction specific information.  An error is returned if the transaction is not of
-// type LIMIT_ORDER_CREATE, STOP_ORDER_CREATE or MARKET_IF_TOUCHED_ORDER_CREATE.
-func (t *Transaction) AsOrderCreate() (*tranOrderCreate, bool) {
-	switch t.Type() {
-	case "LIMIT_ORDER_CREATE", "STOP_ORDER_CREATE", "MARKET_IF_TOUCHED_ORDER_CREATE":
-		return &tranOrderCreate{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsOrderUpdate() (*tranOrderUpdate, bool) {
-	if t.Type() == "ORDER_UPDATE" {
-		return &tranOrderUpdate{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsOrderCancel() (*tranOrderCancel, bool) {
-	if t.Type() == "ORDER_CANCEL" {
-		return &tranOrderCancel{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsOrderFilled() (*tranOrderFilled, bool) {
-	if t.Type() == "ORDER_FILLED" {
-		return &tranOrderFilled{&tranTradeCreate{t}}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsTradeUpdate() (*tranTradeUpdate, bool) {
-	if t.Type() == "TRADE_UPDATE" {
-		return &tranTradeUpdate{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsTradeClose() (*tranTradeClose, bool) {
-	switch t.Type() {
-	case "TRADE_CLOSE", "MIGRATE_TRADE_CLOSE",
-		"TAKE_PROFIT_FILLED", "STOP_LOSS_FILLED",
-		"TRAILING_STOP_FILLED", "MARGIN_CLOSEOUT":
-
-		return &tranTradeClose{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsMigrateTradeOpen() (*tranMigrateTradeOpen, bool) {
-	if t.Type() == "MIGRATE_TRADE_OPEN" {
-		return &tranMigrateTradeOpen{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsSetMarginRate() (*tranSetMarginRate, bool) {
-	if t.Type() == "SET_MARGIN_RATE" {
-		return &tranSetMarginRate{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsTransferFunds() (*tranTransferFunds, bool) {
-	if t.Type() == "TRANSFER_FUNDS" {
-		return &tranTransferFunds{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsDailyInterest() (*tranDailyInterest, bool) {
-	if t.Type() == "DAILY_INTEREST" {
-		return &tranDailyInterest{t}, true
-	}
-	return nil, false
-}
-
-func (t *Transaction) AsFee() (*tranFee, bool) {
-	if t.Type() == "FEE" {
-		return &tranFee{t}, true
-	}
-	return nil, false
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CREATE
 
-type tranAccountCreate struct{ *Transaction }
+type AccountCreateEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranAccountCreate) HomeCurrency() string { return t.data.HomeCurrency }
-func (t *tranAccountCreate) Reason() string       { return t.data.Reason }
+func (t *AccountCreateEvent) HomeCurrency() string { return t.body.HomeCurrency }
+func (t *AccountCreateEvent) Reason() string       { return t.body.Reason }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MARKET_ORDER_CREATE
 
-type tranTradeCreate struct{ *Transaction }
-
-func (t *tranTradeCreate) Instrument() string       { return t.data.Instrument }
-func (t *tranTradeCreate) Side() string             { return t.data.Side }
-func (t *tranTradeCreate) Units() int               { return t.data.Units }
-func (t *tranTradeCreate) Price() float64           { return t.data.Price }
-func (t *tranTradeCreate) Pl() float64              { return t.data.Pl }
-func (t *tranTradeCreate) Interest() float64        { return t.data.Interest }
-func (t *tranTradeCreate) LowerBound() float64      { return t.data.LowerBound }
-func (t *tranTradeCreate) UpperBound() float64      { return t.data.UpperBound }
-func (t *tranTradeCreate) AccountBalance() float64  { return t.data.AccountBalance }
-func (t *tranTradeCreate) StopLossPrice() float64   { return t.data.StopLossPrice }
-func (t *tranTradeCreate) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
-func (t *tranTradeCreate) TrailingStopLossDistance() float64 {
-	return t.data.TrailingStopLossDistance
+type TradeCreateEvent struct {
+	evtHeader
+	body *evtBody
 }
-func (t *tranTradeCreate) TradeOpened() *tranTradeDetail {
-	if t.data.TradeOpened != nil {
-		return &tranTradeDetail{t.data.TradeOpened}
+
+func (t *TradeCreateEvent) Instrument() string       { return t.body.Instrument }
+func (t *TradeCreateEvent) Side() string             { return t.body.Side }
+func (t *TradeCreateEvent) Units() int               { return t.body.Units }
+func (t *TradeCreateEvent) Price() float64           { return t.body.Price }
+func (t *TradeCreateEvent) Pl() float64              { return t.body.Pl }
+func (t *TradeCreateEvent) Interest() float64        { return t.body.Interest }
+func (t *TradeCreateEvent) LowerBound() float64      { return t.body.LowerBound }
+func (t *TradeCreateEvent) UpperBound() float64      { return t.body.UpperBound }
+func (t *TradeCreateEvent) AccountBalance() float64  { return t.body.AccountBalance }
+func (t *TradeCreateEvent) StopLossPrice() float64   { return t.body.StopLossPrice }
+func (t *TradeCreateEvent) TakeProfitPrice() float64 { return t.body.TakeProfitPrice }
+func (t *TradeCreateEvent) TrailingStopLossDistance() float64 {
+	return t.body.TrailingStopLossDistance
+}
+func (t *TradeCreateEvent) TradeOpened() *evtTradeDetail {
+	if t.body.TradeOpened != nil {
+		return &evtTradeDetail{t.body.TradeOpened}
 	}
 	return nil
 }
-func (t *tranTradeCreate) TradeReduced() *tranTradeDetail {
-	if t.data.TradeReduced != nil {
-		return &tranTradeDetail{t.data.TradeReduced}
+func (t *TradeCreateEvent) TradeReduced() *evtTradeDetail {
+	if t.body.TradeReduced != nil {
+		return &evtTradeDetail{t.body.TradeReduced}
 	}
 	return nil
 }
@@ -234,222 +152,275 @@ func (t *tranTradeCreate) TradeReduced() *tranTradeDetail {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // LIMIT_ORDER_CREATE, STOP_ORDER_CREATE, MARKET_IF_TOUCHED_CREATE
 
-type tranOrderCreate struct{ *Transaction }
+type OrderCreateEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranOrderCreate) Instrument() string       { return t.data.Instrument }
-func (t *tranOrderCreate) Side() string             { return t.data.Side }
-func (t *tranOrderCreate) Units() int               { return t.data.Units }
-func (t *tranOrderCreate) Price() float64           { return t.data.Price }
-func (t *tranOrderCreate) Expiry() time.Time        { return t.data.Expiry }
-func (t *tranOrderCreate) Reason() string           { return t.data.Reason }
-func (t *tranOrderCreate) LowerBound() float64      { return t.data.LowerBound }
-func (t *tranOrderCreate) UpperBound() float64      { return t.data.UpperBound }
-func (t *tranOrderCreate) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
-func (t *tranOrderCreate) StopLossPrice() float64   { return t.data.StopLossPrice }
-func (t *tranOrderCreate) TrailingStopLossDistance() float64 {
-	return t.data.TrailingStopLossDistance
+func (t *OrderCreateEvent) Instrument() string       { return t.body.Instrument }
+func (t *OrderCreateEvent) Side() string             { return t.body.Side }
+func (t *OrderCreateEvent) Units() int               { return t.body.Units }
+func (t *OrderCreateEvent) Price() float64           { return t.body.Price }
+func (t *OrderCreateEvent) Expiry() time.Time        { return t.body.Expiry }
+func (t *OrderCreateEvent) Reason() string           { return t.body.Reason }
+func (t *OrderCreateEvent) LowerBound() float64      { return t.body.LowerBound }
+func (t *OrderCreateEvent) UpperBound() float64      { return t.body.UpperBound }
+func (t *OrderCreateEvent) TakeProfitPrice() float64 { return t.body.TakeProfitPrice }
+func (t *OrderCreateEvent) StopLossPrice() float64   { return t.body.StopLossPrice }
+func (t *OrderCreateEvent) TrailingStopLossDistance() float64 {
+	return t.body.TrailingStopLossDistance
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ORDER_UPDATE
 
-type tranOrderUpdate struct{ *Transaction }
+type OrderUpdateEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranOrderUpdate) Instrument() string       { return t.data.Instrument }
-func (t *tranOrderUpdate) Side() string             { return t.data.Side }
-func (t *tranOrderUpdate) Units() int               { return t.data.Units }
-func (t *tranOrderUpdate) Reason() string           { return t.data.Reason }
-func (t *tranOrderUpdate) LowerBound() float64      { return t.data.LowerBound }
-func (t *tranOrderUpdate) UpperBound() float64      { return t.data.UpperBound }
-func (t *tranOrderUpdate) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
-func (t *tranOrderUpdate) StopLossPrice() float64   { return t.data.StopLossPrice }
-func (t *tranOrderUpdate) TrailingStopLossDistance() float64 {
-	return t.data.TrailingStopLossDistance
+func (t *OrderUpdateEvent) Instrument() string       { return t.body.Instrument }
+func (t *OrderUpdateEvent) Side() string             { return t.body.Side }
+func (t *OrderUpdateEvent) Units() int               { return t.body.Units }
+func (t *OrderUpdateEvent) Reason() string           { return t.body.Reason }
+func (t *OrderUpdateEvent) LowerBound() float64      { return t.body.LowerBound }
+func (t *OrderUpdateEvent) UpperBound() float64      { return t.body.UpperBound }
+func (t *OrderUpdateEvent) TakeProfitPrice() float64 { return t.body.TakeProfitPrice }
+func (t *OrderUpdateEvent) StopLossPrice() float64   { return t.body.StopLossPrice }
+func (t *OrderUpdateEvent) TrailingStopLossDistance() float64 {
+	return t.body.TrailingStopLossDistance
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ORDER_CANCEL
 
-type tranOrderCancel struct{ *Transaction }
+type OrderCancelEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranOrderCancel) OrderId() int   { return t.data.OrderId }
-func (t *tranOrderCancel) Reason() string { return t.data.Reason }
+func (t *OrderCancelEvent) OrderId() int   { return t.body.OrderId }
+func (t *OrderCancelEvent) Reason() string { return t.body.Reason }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ORDER_FILLED
 
-type tranOrderFilled struct{ *tranTradeCreate }
+type OrderFilledEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranOrderFilled) OrderId() int { return t.data.OrderId }
+func (t *OrderFilledEvent) OrderId() int { return t.body.OrderId }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRADE_UPDATE
 
-type tranTradeUpdate struct{ *Transaction }
+type TradeUpdateEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranTradeUpdate) Instrument() string               { return t.data.Instrument }
-func (t *tranTradeUpdate) Units() int                       { return t.data.Units }
-func (t *tranTradeUpdate) Side() string                     { return t.data.Side }
-func (t *tranTradeUpdate) TradeId() int                     { return t.data.TradeId }
-func (t *tranTradeUpdate) TakeProfitPrice() float64         { return t.data.TakeProfitPrice }
-func (t *tranTradeUpdate) StopLossPrice() float64           { return t.data.StopLossPrice }
-func (t *tranTradeUpdate) TailingStopLossDistance() float64 { return t.data.TrailingStopLossDistance }
+func (t *TradeUpdateEvent) Instrument() string               { return t.body.Instrument }
+func (t *TradeUpdateEvent) Units() int                       { return t.body.Units }
+func (t *TradeUpdateEvent) Side() string                     { return t.body.Side }
+func (t *TradeUpdateEvent) TradeId() int                     { return t.body.TradeId }
+func (t *TradeUpdateEvent) TakeProfitPrice() float64         { return t.body.TakeProfitPrice }
+func (t *TradeUpdateEvent) StopLossPrice() float64           { return t.body.StopLossPrice }
+func (t *TradeUpdateEvent) TailingStopLossDistance() float64 { return t.body.TrailingStopLossDistance }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRADE_CLOSE, MIGRATE_TRADE_CLOSE, TAKE_PROFIT_FILLED, STOP_LOSS_FILLED, TRAILING_STOP_FILLED,
 // MARGIN_CLOSEOUT
 
-type tranTradeClose struct{ *Transaction }
-
-func (t *tranTradeClose) Instrument() string {
-	return t.data.Instrument
+type TradeCloseEvent struct {
+	evtHeader
+	body *evtBody
 }
 
-func (t *tranTradeClose) Units() int {
-	return t.data.Units
-}
-
-func (t *tranTradeClose) Side() string {
-	return t.data.Side
-}
-
-func (t *tranTradeClose) Price() float64 {
-	return t.data.Price
-}
-
-func (t *tranTradeClose) Pl() float64 {
-	return t.data.Pl
-}
-
-func (t *tranTradeClose) Interest() float64 {
-	return t.data.Interest
-}
-
-func (t *tranTradeClose) AccountBalance() float64 {
-	return t.data.AccountBalance
-}
-
-func (t *tranTradeClose) TradeId() int {
-	return t.data.TradeId
-}
+func (t *TradeCloseEvent) Instrument() string      { return t.body.Instrument }
+func (t *TradeCloseEvent) Units() int              { return t.body.Units }
+func (t *TradeCloseEvent) Side() string            { return t.body.Side }
+func (t *TradeCloseEvent) Price() float64          { return t.body.Price }
+func (t *TradeCloseEvent) Pl() float64             { return t.body.Pl }
+func (t *TradeCloseEvent) Interest() float64       { return t.body.Interest }
+func (t *TradeCloseEvent) AccountBalance() float64 { return t.body.AccountBalance }
+func (t *TradeCloseEvent) TradeId() int            { return t.body.TradeId }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MIGRATE_TRADE_OPEN
 
-type tranMigrateTradeOpen struct{ *Transaction }
-
-func (t *tranMigrateTradeOpen) Instrument() string       { return t.data.Instrument }
-func (t *tranMigrateTradeOpen) Side() string             { return t.data.Side }
-func (t *tranMigrateTradeOpen) Units() int               { return t.data.Units }
-func (t *tranMigrateTradeOpen) Price() float64           { return t.data.Price }
-func (t *tranMigrateTradeOpen) TakeProfitPrice() float64 { return t.data.TakeProfitPrice }
-func (t *tranMigrateTradeOpen) StopLossPrice() float64   { return t.data.StopLossPrice }
-func (t *tranMigrateTradeOpen) TrailingStopLossDistance() float64 {
-	return t.data.TrailingStopLossDistance
+type MigrateTradeOpenEvent struct {
+	evtHeader
+	body *evtBody
 }
-func (t *tranMigrateTradeOpen) TradeOpened() *tranTradeDetail {
-	return &tranTradeDetail{t.data.TradeOpened}
+
+func (t *MigrateTradeOpenEvent) Instrument() string       { return t.body.Instrument }
+func (t *MigrateTradeOpenEvent) Side() string             { return t.body.Side }
+func (t *MigrateTradeOpenEvent) Units() int               { return t.body.Units }
+func (t *MigrateTradeOpenEvent) Price() float64           { return t.body.Price }
+func (t *MigrateTradeOpenEvent) TakeProfitPrice() float64 { return t.body.TakeProfitPrice }
+func (t *MigrateTradeOpenEvent) StopLossPrice() float64   { return t.body.StopLossPrice }
+func (t *MigrateTradeOpenEvent) TrailingStopLossDistance() float64 {
+	return t.body.TrailingStopLossDistance
+}
+func (t *MigrateTradeOpenEvent) TradeOpened() *evtTradeDetail {
+	return &evtTradeDetail{t.body.TradeOpened}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SET_MARGIN_RATE
 
-type tranSetMarginRate struct{ *Transaction }
+type SetMarginRateEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranSetMarginRate) Rate() float64 { return t.data.Rate }
+func (t *SetMarginRateEvent) Rate() float64 { return t.body.Rate }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRANSFER_FUNDS
 
-type tranTransferFunds struct{ *Transaction }
+type TransferFundsEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranTransferFunds) Amount() float64 { return t.data.Amount }
+func (t *TransferFundsEvent) Amount() float64 { return t.body.Amount }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DAILY_INTEREST
 
-type tranDailyInterest struct{ *Transaction }
+type DailyInterestEvent struct {
+	evtHeader
+	body *evtBody
+}
 
-func (t *tranDailyInterest) Interest() float64 { return t.data.Interest }
+func (t *DailyInterestEvent) Interest() float64 { return t.body.Interest }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FEE
 
-type tranFee struct{ *Transaction }
-
-func (t *tranFee) Amount() float64         { return t.data.Amount }
-func (t *tranFee) AccountBalance() float64 { return t.data.AccountBalance }
-func (t *tranFee) Reason() string          { return t.data.Reason }
-
-type (
-	MinId        int
-	Transactions []Transaction
-)
-
-type TransactionsArg interface {
-	ApplyTransactionsArg(url.Values)
+type FeeEvent struct {
+	evtHeader
+	body *evtBody
 }
 
-func (mi MaxId) ApplyTransactionsArg(v url.Values) {
+func (t *FeeEvent) Amount() float64         { return t.body.Amount }
+func (t *FeeEvent) AccountBalance() float64 { return t.body.AccountBalance }
+func (t *FeeEvent) Reason() string          { return t.body.Reason }
+
+type (
+	MinId  int
+	Events []Event
+)
+
+type EventsArg interface {
+	ApplyEventsArg(url.Values)
+}
+
+func (mi MaxId) ApplyEventsArg(v url.Values) {
 	optionalArgs(v).SetInt("maxId", int(mi))
 }
 
-func (mi MinId) ApplyTransactionsArg(v url.Values) {
+func (mi MinId) ApplyEventsArg(v url.Values) {
 	optionalArgs(v).SetInt("minId", int(mi))
 }
 
-func (c Count) ApplyTransactionsArg(v url.Values) {
+func (c Count) ApplyEventsArg(v url.Values) {
 	optionalArgs(v).SetInt("count", int(c))
 }
 
-func (i Instrument) ApplyTransactionsArg(v url.Values) {
+func (i Instrument) ApplyEventsArg(v url.Values) {
 	v.Set("instrument", string(i))
 }
 
-func (ids Ids) ApplyTransactionsArg(v url.Values) {
+func (ids Ids) ApplyEventsArg(v url.Values) {
 	optionalArgs(v).SetIntArray("ids", []int(ids))
 }
 
-// Transactions returns an array of transactions.
-func (c *Client) Transactions(args ...TransactionsArg) (Transactions, error) {
+// Events returns an array of events.
+func (c *Client) Events(args ...EventsArg) (Events, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/transactions", c.accountId)
-
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-
 	data := u.Query()
 	for _, arg := range args {
-		arg.ApplyTransactionsArg(data)
+		arg.ApplyEventsArg(data)
 	}
 	u.RawQuery = data.Encode()
 	urlStr = u.String()
 
 	s := struct {
 		ApiError
-		Transactions Transactions `json:"transactions"`
+		Events []struct {
+			*evtHeaderContent
+			*evtBody
+		} `json:"transactions"`
 	}{}
 	if err = getAndDecode(c, urlStr, &s); err != nil {
 		return nil, err
 	}
-	return s.Transactions, nil
+	events := []Event{}
+	for _, rawEvent := range s.Events {
+		evt, err := asEvent(rawEvent.evtHeaderContent, rawEvent.evtBody)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, evt)
+	}
+	return events, nil
 }
 
-// Transaction returns data for a single transaction.
-func (c *Client) Transaction(tranId int) (*Transaction, error) {
-	tran := struct {
+// Event returns data for a single transaction.
+func (c *Client) Event(tranId int) (Event, error) {
+	evtData := struct {
 		ApiError
-		Transaction
+		evtHeaderContent
+		evtBody
 	}{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/transactions/%d", c.accountId, tranId)
-	if err := getAndDecode(c, urlStr, &tran); err != nil {
+	if err := getAndDecode(c, urlStr, &evtData); err != nil {
 		return nil, err
 	}
-	return &tran.Transaction, nil
+	return asEvent(&evtData.evtHeaderContent, &evtData.evtBody)
 }
 
-// FullTransactionHistory returns a url from which a file containing the full transaction history
+func asEvent(header *evtHeaderContent, body *evtBody) (Event, error) {
+	switch header.Type {
+	case "CREATE":
+		return &AccountCreateEvent{evtHeader{header}, body}, nil
+	case "MARKET_ORDER_CREATE":
+		return &TradeCloseEvent{evtHeader{header}, body}, nil
+	case "LIMIT_ORDER_CREATE", "STOP_ORDER_CREATE", "MARKET_IF_TOUCHED_CREATE":
+		return &OrderCreateEvent{evtHeader{header}, body}, nil
+	case "ORDER_UPDATE":
+		return &OrderUpdateEvent{evtHeader{header}, body}, nil
+	case "ORDER_CANCEL":
+		return &OrderCancelEvent{evtHeader{header}, body}, nil
+	case "ORDER_FILLED":
+		return &OrderFilledEvent{evtHeader{header}, body}, nil
+	case "TRADE_UPDATE":
+		return &TradeUpdateEvent{evtHeader{header}, body}, nil
+	case "TRADE_CLOSE", "MIGRATE_TRADE_CLOSE", "TAKE_PROFIT_FILLED", "STOP_LOSS_FILLED", "TRAILING_STOP_FILLED",
+		"MARGIN_CLOSEOUT":
+		return &TradeCloseEvent{evtHeader{header}, body}, nil
+	case "MIGRATE_TRADE_OPEN":
+		return &MigrateTradeOpenEvent{evtHeader{header}, body}, nil
+	case "SET_MARGIN_RATE":
+		return &SetMarginRateEvent{evtHeader{header}, body}, nil
+	case "TRANSFER_FUNDS":
+		return &TransferFundsEvent{evtHeader{header}, body}, nil
+	case "DAILY_INTEREST":
+		return &DailyInterestEvent{evtHeader{header}, body}, nil
+	case "FEE":
+		return &FeeEvent{evtHeader{header}, body}, nil
+	}
+	return nil, fmt.Errorf("Unexpected event type %s", header.Type)
+}
+
+// FullEventHistory returns a url from which a file containing the full transaction history
 // for the account can be downloaded.
 func (c *Client) FullTransactionHistory() (*url.URL, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/alltransactions", c.accountId)
@@ -481,7 +452,7 @@ type eventServer struct {
 }
 
 type (
-	EventsHandlerFunc func(int, *Transaction)
+	EventsHandlerFunc func(int, Event)
 	AccountId         int
 )
 
@@ -537,24 +508,24 @@ func (es *eventServer) Stop() {
 
 func (es *eventServer) initServer(handleFn EventsHandlerFunc) {
 	for _, accId := range es.chanMap.AccountIds() {
-		tranC := make(chan *Transaction, defaultBufferSize)
-		es.chanMap.Set(accId, tranC)
+		evtC := make(chan Event, defaultBufferSize)
+		es.chanMap.Set(accId, evtC)
 
-		go func(lclC <-chan *Transaction) {
-			for tran := range lclC {
-				handleFn(tran.AccountId(), tran)
+		go func(lclC <-chan Event) {
+			for evt := range lclC {
+				handleFn(evt.AccountId(), evt)
 			}
-		}(tranC)
+		}(evtC)
 	}
 	return
 }
 
 func (es *eventServer) cleanupServer() {
 	for _, accId := range es.chanMap.AccountIds() {
-		tranC, _ := es.chanMap.Get(accId)
+		evtC, _ := es.chanMap.Get(accId)
 		es.chanMap.Set(accId, nil)
-		if tranC != nil {
-			close(tranC)
+		if evtC != nil {
+			close(evtC)
 		}
 	}
 }
@@ -566,16 +537,24 @@ func (es *eventServer) handleHeartbeat(hb time.Time) {
 }
 
 func (es *eventServer) handleMessage(msgType string, rawMessage json.RawMessage) {
-	tran := &Transaction{}
-	if err := json.Unmarshal(rawMessage, tran); err != nil {
+	rawEvent := struct {
+		*evtHeaderContent
+		*evtBody
+	}{}
+	if err := json.Unmarshal(rawMessage, &rawEvent); err != nil {
 		// FIXME: log message
 		return
 	}
-	tranC, ok := es.chanMap.Get(tran.AccountId())
+	evt, err := asEvent(rawEvent.evtHeaderContent, rawEvent.evtBody)
+	if err != nil {
+		// FIXME: Log error
+		return
+	}
+	evtC, ok := es.chanMap.Get(evt.AccountId())
 	if !ok {
 		// FIXME: log error "unexpected accountId"
-	} else if tranC != nil {
-		tranC <- tran
+	} else if evtC != nil {
+		evtC <- evt
 	} else {
 		// FiXME: log "event after server closed"
 	}
@@ -586,7 +565,7 @@ func (es *eventServer) handleMessage(msgType string, rawMessage json.RawMessage)
 
 type eventChans struct {
 	mtx sync.RWMutex
-	m   map[int]chan *Transaction
+	m   map[int]chan Event
 }
 
 func (ec *eventChans) AccountIds() []int {
@@ -599,13 +578,13 @@ func (ec *eventChans) AccountIds() []int {
 	return accIds
 }
 
-func (ec *eventChans) Set(accountId int, ch chan *Transaction) {
+func (ec *eventChans) Set(accountId int, ch chan Event) {
 	ec.mtx.Lock()
 	defer ec.mtx.Unlock()
 	ec.m[accountId] = ch
 }
 
-func (ec *eventChans) Get(accountId int) (chan *Transaction, bool) {
+func (ec *eventChans) Get(accountId int) (chan Event, bool) {
 	ec.mtx.RLock()
 	defer ec.mtx.RUnlock()
 	ch, ok := ec.m[accountId]
@@ -613,7 +592,7 @@ func (ec *eventChans) Get(accountId int) (chan *Transaction, bool) {
 }
 
 func newEventChans(accountIds []int) *eventChans {
-	m := make(map[int]chan *Transaction, len(accountIds))
+	m := make(map[int]chan Event, len(accountIds))
 	for _, accId := range accountIds {
 		m[accId] = nil
 	}

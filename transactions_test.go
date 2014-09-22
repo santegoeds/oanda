@@ -21,14 +21,14 @@ import (
 	"gopkg.in/check.v1"
 )
 
-type TestTranSuite struct {
+type TestEventSuite struct {
 	AccountId int
 	c         *oanda.Client
 }
 
-var _ = check.Suite(&TestTranSuite{})
+var _ = check.Suite(&TestEventSuite{})
 
-func (ts *TestTranSuite) SetUpTest(c *check.C) {
+func (ts *TestEventSuite) SetUpTest(c *check.C) {
 	client, err := oanda.NewSandboxClient()
 	c.Assert(err, check.IsNil)
 	ts.c = client
@@ -41,26 +41,26 @@ func (ts *TestTranSuite) SetUpTest(c *check.C) {
 	ts.c.SelectAccount(ts.AccountId)
 }
 
-func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
-	trans, err := ts.c.Transactions()
+func (ts *TestEventSuite) TestEventApi(c *check.C) {
+	events, err := ts.c.Events()
 	c.Assert(err, check.IsNil)
-	c.Assert(trans, check.HasLen, 2)
+	c.Assert(events, check.HasLen, 2)
 
 	m := make(map[string]bool)
-	for _, tran := range trans {
-		m[tran.Type()] = true
+	for _, evt := range events {
+		m[evt.Type()] = true
 
-		switch tran.Type() {
+		switch evt.Type() {
 		case "CREATE":
-			acTran, ok := tran.AsAccountCreate()
+			accountCreate, ok := evt.(*oanda.AccountCreateEvent)
 			c.Assert(ok, check.Equals, true)
-			c.Check(acTran.HomeCurrency(), check.Not(check.Equals), "")
-			c.Check(acTran.Reason(), check.Not(check.Equals), "")
+			c.Check(accountCreate.HomeCurrency(), check.Not(check.Equals), "")
+			c.Check(accountCreate.Reason(), check.Not(check.Equals), "")
 
 		case "TRANSFER_FUNDS":
-			tfTran, ok := tran.AsTransferFunds()
+			transferFunds, ok := evt.(*oanda.TransferFundsEvent)
 			c.Assert(ok, check.Equals, true)
-			c.Check(tfTran.Amount(), check.Equals, 100000.)
+			c.Check(transferFunds.Amount(), check.Equals, 100000.)
 
 		}
 	}
@@ -73,24 +73,24 @@ func (ts *TestTranSuite) TestTransactionApi(c *check.C) {
 	_, ok = m["TRANSFER_FUNDS"]
 	c.Assert(ok, check.Equals, true)
 
-	tran, err := ts.c.Transaction(trans[0].TranId())
+	evt, err := ts.c.Event(events[0].TranId())
 	c.Assert(err, check.IsNil)
 
-	c.Log(tran)
-	c.Check(tran.Type(), check.Equals, trans[0].Type())
-	c.Check(tran.AccountId(), check.Equals, trans[0].AccountId())
-	c.Check(tran.Time(), check.Equals, trans[0].Time())
+	c.Log(evt)
+	c.Check(evt.Type(), check.Equals, events[0].Type())
+	c.Check(evt.AccountId(), check.Equals, events[0].AccountId())
+	c.Check(evt.Time(), check.Equals, events[0].Time())
 
-	tfTran1, ok := trans[0].AsTransferFunds()
+	transferFunds1, ok := events[0].(*oanda.TransferFundsEvent)
 	c.Assert(ok, check.Equals, true)
 
-	tfTran2, ok := tran.AsTransferFunds()
+	transferFunds2, ok := evt.(*oanda.TransferFundsEvent)
 	c.Assert(ok, check.Equals, true)
 
-	c.Check(tfTran1.Amount(), check.Equals, tfTran2.Amount())
+	c.Check(transferFunds1.Amount(), check.Equals, transferFunds2.Amount())
 }
 
-func (ts *TestTranSuite) TestEventServer(c *check.C) {
+func (ts *TestEventSuite) TestEventServer(c *check.C) {
 	es, err := ts.c.NewEventServer(ts.AccountId)
 	c.Assert(err, check.IsNil)
 
@@ -105,23 +105,23 @@ func (ts *TestTranSuite) TestEventServer(c *check.C) {
 
 	wg.Add(1)
 	go func() {
-		err := es.ConnectAndHandle(func(accountId int, tran *oanda.Transaction) {
-			c.Log(accountId, tran)
+		err := es.ConnectAndHandle(func(accountId int, evt oanda.Event) {
+			c.Log(accountId, evt)
 
 			es.Stop()
 			t.Stop()
 
-			c.Assert(accountId, check.Equals, tran.AccountId())
-			c.Assert(tran.Type(), check.Equals, "LIMIT_ORDER_CREATE")
+			c.Assert(accountId, check.Equals, evt.AccountId())
+			c.Assert(evt.Type(), check.Equals, "LIMIT_ORDER_CREATE")
 
-			ocTran, ok := tran.AsOrderCreate()
+			orderCreate, ok := evt.(*oanda.OrderCreateEvent)
 			c.Assert(ok, check.Equals, true)
-			c.Assert(ocTran.Instrument(), check.Equals, "EUR_USD")
-			c.Assert(ocTran.Side(), check.Equals, "buy")
-			c.Assert(ocTran.Units(), check.Equals, 1)
-			c.Assert(ocTran.Price(), check.Equals, 0.75)
-			c.Assert(ocTran.Expiry().Equal(expiry.Truncate(time.Second)), check.Equals, true)
-			c.Assert(ocTran.Reason(), check.Equals, "CLIENT_REQUEST")
+			c.Assert(orderCreate.Instrument(), check.Equals, "EUR_USD")
+			c.Assert(orderCreate.Side(), check.Equals, "buy")
+			c.Assert(orderCreate.Units(), check.Equals, 1)
+			c.Assert(orderCreate.Price(), check.Equals, 0.75)
+			c.Assert(orderCreate.Expiry().Equal(expiry.Truncate(time.Second)), check.Equals, true)
+			c.Assert(orderCreate.Reason(), check.Equals, "CLIENT_REQUEST")
 		})
 		c.Assert(err, check.IsNil)
 		wg.Done()
