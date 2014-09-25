@@ -92,7 +92,7 @@ func (ts TrailingStop) ApplyNewOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("trailingStop", float64(ts))
 }
 
-// NewOrder submits an Order to the Oanda servers.
+// NewOrder creates and submits a new order.
 func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instrument string,
 	price float64, expiry time.Time, args ...NewOrderArg) (*Order, error) {
 

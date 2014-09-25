@@ -97,8 +97,11 @@ func (pp *PricePoller) Poll() (Prices, error) {
 			PriceTick
 		} `json:"prices"`
 	}{}
-	dec := NewDecoder(rsp.Body)
+	dec := json.NewDecoder(rsp.Body)
 	if err = dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	if err = v.CheckReturnCode(); err != nil {
 		return nil, err
 	}
 	prices := make(Prices)

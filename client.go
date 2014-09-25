@@ -14,6 +14,8 @@
 package oanda
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -35,7 +37,7 @@ var (
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
 
-		// The number of connections to the stream server are restricted. Disable support for
+		// The number of open connections to the stream server are restricted. Disable support for
 		// idle connections.
 		MaxIdleConnsPerHost: -1,
 	}
@@ -196,11 +198,34 @@ func initSandboxAccount(c *Client) (string, error) {
 	return v.Username, nil
 }
 
-func getAndDecode(c *Client, urlStr string, vp interface{}) error {
+type ReturnCodeChecker interface {
+	CheckReturnCode() error
+}
+
+// ApiError hold error details as returned by the Oanda servers.
+type ApiError struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	MoreInfo string `json:"moreInfo"`
+}
+
+func (ae *ApiError) Error() string {
+	return fmt.Sprintf("ApiError{Code: %d, Message: %s, Moreinfo: %s}",
+		ae.Code, ae.Message, ae.MoreInfo)
+}
+
+func (ae *ApiError) CheckReturnCode() error {
+	if ae.Code != 0 {
+		return ae
+	}
+	return nil
+}
+
+func getAndDecode(c *Client, urlStr string, vp ReturnCodeChecker) error {
 	return requestAndDecode(c, "GET", urlStr, nil, vp)
 }
 
-func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp interface{}) error {
+func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp ReturnCodeChecker) error {
 	var rdr io.Reader
 	if len(data) > 0 {
 		rdr = strings.NewReader(data.Encode())
@@ -215,10 +240,12 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp inte
 	}
 	defer rsp.Body.Close()
 
-	dec := NewDecoder(rsp.Body)
+	dec := json.NewDecoder(rsp.Body)
 	if err = dec.Decode(vp); err != nil {
 		return err
 	}
-
+	if err = vp.CheckReturnCode(); err != nil {
+		return err
+	}
 	return nil
 }

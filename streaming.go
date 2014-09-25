@@ -244,7 +244,7 @@ func (s *MessageServer) readMessages() error {
 			case "disconnect":
 				apiErr := ApiError{}
 				if err = json.Unmarshal(msg.RawMessage, &apiErr); err == nil {
-					err = apiErr
+					err = &apiErr
 				}
 				// FIXME: log msg.AsApiError()
 				s.mtx.Lock()
