@@ -8,7 +8,6 @@
     * Historical position rates.
     * Spreads.
     * Commitments of Traders.
- * Add support for using the Status Api.
 
 ## Testing
 

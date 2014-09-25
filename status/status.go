@@ -11,6 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package status provides functions to query the current and past status of the services that
+// oanda makes available via the REST API.
+//
+// For further information see the Oanda documentation at http://api-status.oanda.com/documentation
+
 package status
 
 import (
@@ -20,41 +26,6 @@ import (
 	"net/url"
 	"time"
 )
-
-type ApiServiceStatus struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Url         string `json:"url"`
-	Level       string `json:"level"`
-	Image       string `json:"image"`
-	Default     bool   `json:"default"`
-}
-
-type ApiServiceList struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Url         string `json:"url"`
-}
-
-type ApiServiceEvent struct {
-	Sid           string            `json:"sid"`
-	Message       string            `json:"message"`
-	Timestamp     string            `json:"timestamp"`
-	Url           string            `json:"url"`
-	Status        *ApiServiceStatus `json:"status"`
-	Informational bool              `json:"informational"`
-}
-
-type ApiService struct {
-	Id           string           `json:"id"`
-	Name         string           `json:"name"`
-	Description  string           `json:"description"`
-	List         *ApiServiceList  `json:"list"`
-	CurrentEvent *ApiServiceEvent `json:"current-event"`
-	Url          string           `json:"url"`
-}
 
 type ClientError struct {
 	Code    int    `json:"code"`
@@ -69,6 +40,17 @@ func (e *ClientError) Error() string {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Service
 
+// ApiService represents information about a service.
+type ApiService struct {
+	Id           string           `json:"id"`
+	Name         string           `json:"name"`
+	Description  string           `json:"description"`
+	List         *ApiServiceList  `json:"list"`
+	CurrentEvent *ApiServiceEvent `json:"current-event"`
+	Url          string           `json:"url"`
+}
+
+// Services returns an array with information about all existing services.
 func Services() ([]ApiService, error) {
 	v := struct {
 		ClientError
@@ -83,6 +65,7 @@ func Services() ([]ApiService, error) {
 	return v.Services, nil
 }
 
+// Service returns information about the service with the specified service id.
 func Service(serviceId string) (*ApiService, error) {
 	v := struct {
 		ClientError
@@ -100,6 +83,16 @@ func Service(serviceId string) (*ApiService, error) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Service List
 
+// Represents information about a service list. Services can be grouped together by linking
+// multiple services with the same service list.
+type ApiServiceList struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Url         string `json:"url"`
+}
+
+// ServiceLists returns an array with information off all defined service lists.
 func ServiceLists() ([]ApiServiceList, error) {
 	v := struct {
 		ClientError
@@ -114,6 +107,7 @@ func ServiceLists() ([]ApiServiceList, error) {
 	return v.Lists, nil
 }
 
+// ServiceList returns information about the service list with the specified service id.
 func ServiceList(serviceId string) (*ApiServiceList, error) {
 	v := struct {
 		ClientError
@@ -131,6 +125,21 @@ func ServiceList(serviceId string) (*ApiServiceList, error) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Events
 
+// ApiServiceEvent represents an event that potentially changed the status of a service.
+type ApiServiceEvent struct {
+	Sid           string            `json:"sid"`
+	Message       string            `json:"message"`
+	Timestamp     string            `json:"timestamp"`
+	Url           string            `json:"url"`
+	Status        *ApiServiceStatus `json:"status"`
+	Informational bool              `json:"informational"`
+}
+
+// ServiceEvents returns an array of events for the specified service id. If start- and/or end is
+// not nil the list if filtered to include only the events between start- and end time, inclusive.
+//
+// Note that only the date part of the start- and end times considered and parts with finer
+// granularity are ignored.
 func ServiceEvents(serviceId string, start *time.Time, end *time.Time) ([]ApiServiceEvent, error) {
 	v := struct {
 		ClientError
@@ -157,6 +166,7 @@ func ServiceEvents(serviceId string, start *time.Time, end *time.Time) ([]ApiSer
 	return v.Events, nil
 }
 
+// CurrentServiceEvent returns event information for the current (i.e. most recent) event.
 func CurrentServiceEvent(serviceId string) (*ApiServiceEvent, error) {
 	v := struct {
 		Code    int  `json:"code"`
@@ -177,6 +187,8 @@ func CurrentServiceEvent(serviceId string) (*ApiServiceEvent, error) {
 	return &v.ApiServiceEvent, nil
 }
 
+// ServiceEvent return information about the service event that matches the specified serviceId
+// and eventId.
 func ServiceEvent(serviceId, eventId string) (*ApiServiceEvent, error) {
 	v := struct {
 		Code    int  `json:"code"`
@@ -200,6 +212,18 @@ func ServiceEvent(serviceId, eventId string) (*ApiServiceEvent, error) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Status
 
+// ApServiceStatus represents the status of an oanda service.
+type ApiServiceStatus struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Url         string `json:"url"`
+	Level       string `json:"level"`
+	Image       string `json:"image"`
+	Default     bool   `json:"default"`
+}
+
+// ServiceStatuses returns an array with status information for each defined service.
 func ServiceStatuses() ([]ApiServiceStatus, error) {
 	v := struct {
 		ClientError
@@ -214,6 +238,7 @@ func ServiceStatuses() ([]ApiServiceStatus, error) {
 	return v.Statuses, nil
 }
 
+// ServiceStatus return status information about the service with the specifed id.
 func ServiceStatus(statusId string) (*ApiServiceStatus, error) {
 	v := struct {
 		ClientError
@@ -229,7 +254,31 @@ func ServiceStatus(statusId string) (*ApiServiceStatus, error) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Status images
+
+type ApiStatusImage struct {
+	Name    string `json:"name"`
+	IconSet string `json:"icon_set"`
+	Url     string `json:"url"`
+}
+
+func StatusImages() ([]ApiStatusImage, error) {
+	v := struct {
+		ClientError
+		Images []ApiStatusImage `json:"images"`
+	}{}
+	if err := getStatus("/v1/status-images"); err != nil {
+		return nil, err
+	}
+	if v.IsError {
+		return nil, &v.ClientError
+	}
+	return &v.Images
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // private
+
 func getStatus(urlStr string, v interface{}) error {
 	urlStr = "http://api-status.oanda.com/api" + urlStr
 	rsp, err := http.Get(urlStr)
