@@ -45,7 +45,7 @@ type PositionCloseResponse struct {
 
 type Positions []Position
 
-// Positions returns all positions for an account.
+// Positions returns all positions for the selected account.
 func (c *Client) Positions() (Positions, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/positions", c.accountId)
 	positions := struct {
@@ -58,7 +58,7 @@ func (c *Client) Positions() (Positions, error) {
 	return positions.Positions, nil
 }
 
-// Position returns the position for an account and instrument.
+// Position returns the position for the selected account and instrument.
 func (c *Client) Position(instrument string) (*Position, error) {
 	instrument = strings.ToUpper(instrument)
 	urlStr := fmt.Sprintf("/v1/accounts/%d/positions/%s", c.accountId, instrument)

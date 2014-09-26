@@ -59,17 +59,28 @@ func (o *Order) String() string {
 		o.Units, o.Instrument)
 }
 
-type (
-	Orders []Order
+// LowerBound is an optional argument for Client methods NewOrder(), ModifyOrder() and
+// NewTrade().
+type LowerBound float64
 
-	LowerBound   float64
-	UpperBound   float64
-	StopLoss     float64
-	TakeProfit   float64
-	TrailingStop float64
-)
+// UpperBound is an optional argument for Client methods NewOrder(), ModifyOrder() and
+// NewTrade().
+type UpperBound float64
 
-// NewOrderArg represents an optional argument for method NewOrder.
+// StopLoss is an optional argument for Client methods  NewOrder(), ModifyOrder(), NewTrade()
+// and ModifyTrade().
+type StopLoss float64
+
+// TakeProfit is an optional argument for Client methods NewOrder(), ModifyOrder(), NewTrade(),
+// and ModifyTrade().
+type TakeProfit float64
+
+// TrailingStop is an optional argument for Client methods NewOrder(), ModifyOrder(), NewTrade()
+// and ModifyTrade().
+type TrailingStop float64
+
+// NewOrderArg represents an optional argument for method NewOrder. Types that implement the
+// interface are LowerBound, UpperBound, StopLoss, TakeProfit and TrailingStop.
 type NewOrderArg interface {
 	applyNewOrderArg(url.Values)
 }
@@ -152,13 +163,18 @@ func (c *Client) Order(orderId int) (*Order, error) {
 	return &o.Order, nil
 }
 
-type (
-	MaxId      int
-	Count      int
-	Instrument string
-)
+// MaxId is an optional argument for Client methods Events(), Orders() and Trades().
+type MaxId int
 
-// OrderArgs represents an optional argument for method Orders.
+// Count is an optional argument for Client methods Events(), Orders(), /MidpriceCandles(),
+// BidAskCandles() and Trades().
+type Count int
+
+// Instrument is an optional argument for Client methods Events(), Orders() and Trades().
+type Instrument string
+
+// OrderArgs represents an optional argument for method Orders. Types that implement the interface
+// are MaxId, Count and Instrument.
 type OrdersArg interface {
 	applyOrdersArg(url.Values)
 }
@@ -175,8 +191,9 @@ func (in Instrument) applyOrdersArg(v url.Values) {
 	v.Set("instrument", string(in))
 }
 
-// Orders returns an array with all orders that match the optional arguments (if any).
-func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
+// Orders returns an array with all orders that match the optional arguments (if any). Supported
+// OrdersArg are MaxId, Count and Instrument.
+func (c *Client) Orders(args ...OrdersArg) ([]Order, error) {
 	u, err := url.Parse(fmt.Sprintf("/v1/accounts/%d/orders", c.accountId))
 	if err != nil {
 		return nil, err
@@ -190,7 +207,7 @@ func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
 
 	rsp := struct {
 		ApiError
-		Orders Orders `json:"orders"`
+		Orders []Order `json:"orders"`
 	}{}
 	if err := getAndDecode(c, u.String(), &rsp); err != nil {
 		return nil, err
@@ -198,13 +215,18 @@ func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
 	return rsp.Orders, nil
 }
 
-type (
-	Units  int
-	Expiry time.Time
-	Price  float64
-)
+// Units is an optional argument for Client method ModifyOrder().
+type Units int
 
-// ModifyOrderArg represents an opional argument for method ModifyOrder.
+// Expiry is an optional argument for Client method ModifyOrder().
+type Expiry time.Time
+
+// Price is an optional argument for Client method ModifyOrder().
+type Price float64
+
+// ModifyOrderArg represents an opional argument for method ModifyOrder. Types that implement
+// the interface are Units, Price, Expiry, LowerBound, UpperBound, StopLoss, TakeProfit and
+// TrailingStop.
 type ModifyOrderArg interface {
 	applyModifyOrderArg(url.Values)
 }
@@ -241,7 +263,8 @@ func (ts TrailingStop) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("trailingStop", float64(ts))
 }
 
-// ModifyOrder updates an open order.
+// ModifyOrder updates an open order. Supported arguments are Units(), Price(), Expiry(),
+// UpperBound(), StopLoss(), TakeProfit() and TrailingStop().
 func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrderArg) (*Order, error) {
 	data := url.Values{}
 	arg.applyModifyOrderArg(data)

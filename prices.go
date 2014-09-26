@@ -37,7 +37,7 @@ func (p *PriceTick) Spread() float64 {
 	return p.Ask - p.Bid
 }
 
-// PollPrices returns the latest PriceTick for instruments.
+// PollPrices returns the latest PriceTick for the specified instruments.
 func (c *Client) PollPrices(instrument string, instruments ...string) (Prices, error) {
 	return c.PollPricesSince(time.Time{}, instrument, instruments...)
 }
@@ -58,7 +58,7 @@ type PricePoller struct {
 	lastPrices Prices
 }
 
-// NewPricePoller returns a poller to effeciently poll Oanda for updates of the same set of
+// NewPricePoller returns a poller to repeatedly poll Oanda for updates of the same set of
 // instruments.
 func (c *Client) NewPricePoller(since time.Time, instr string, instrs ...string) (*PricePoller, error) {
 	instrs = append(instrs, instr)
@@ -122,10 +122,10 @@ var tickPool = sync.Pool{
 	New: func() interface{} { return &instrumentTick{} },
 }
 
-type TickHandlerFunc func(instr string, pp PriceTick)
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // priceServer
+
+type TickHandlerFunc func(instr string, pp PriceTick)
 
 type priceServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
