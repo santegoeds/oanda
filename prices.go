@@ -127,14 +127,14 @@ var tickPool = sync.Pool{
 
 type TickHandlerFunc func(instr string, pp PriceTick)
 
-type priceServer struct {
+type PriceServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	srv           *messageServer
 	chanMap       *tickChans
 }
 
 // NewPriceServer creates a Price Server for receiving and handling Ticks.
-func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, error) {
+func (c *Client) NewPriceServer(instr string, instrs ...string) (*PriceServer, error) {
 	instrs = append(instrs, instr)
 	for i, instr := range instrs {
 		instrs[i] = strings.ToUpper(instr)
@@ -151,7 +151,7 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 	q.Set("instruments", strings.Join(instrs, ","))
 	u.RawQuery = q.Encode()
 
-	ps := priceServer{
+	ps := PriceServer{
 		chanMap: newTickChans(instrs),
 	}
 
@@ -170,17 +170,17 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 }
 
 // ConnectAndHandle connects to the Oanda server and invokes handleFn for every Tick received.
-func (ps *priceServer) ConnectAndHandle(handleFn TickHandlerFunc) error {
+func (ps *PriceServer) ConnectAndHandle(handleFn TickHandlerFunc) error {
 	ps.initServer(handleFn)
 	return ps.srv.ConnectAndDispatch()
 }
 
 // Stop terminates the Price server.
-func (ps *priceServer) Stop() {
+func (ps *PriceServer) Stop() {
 	ps.srv.Stop()
 }
 
-func (ps *priceServer) initServer(handleFn TickHandlerFunc) {
+func (ps *PriceServer) initServer(handleFn TickHandlerFunc) {
 	for _, instr := range ps.chanMap.Instruments() {
 		tickC := make(chan *instrumentTick, defaultBufferSize)
 		ps.chanMap.Set(instr, tickC)
@@ -194,7 +194,7 @@ func (ps *priceServer) initServer(handleFn TickHandlerFunc) {
 	}
 }
 
-func (ps *priceServer) handleHeartbeats(hbC <-chan time.Time) {
+func (ps *PriceServer) handleHeartbeats(hbC <-chan time.Time) {
 	for hb := range hbC {
 		if ps.HeartbeatFunc != nil {
 			ps.HeartbeatFunc(hb)
@@ -202,7 +202,7 @@ func (ps *priceServer) handleHeartbeats(hbC <-chan time.Time) {
 	}
 }
 
-func (ps *priceServer) handleMessages(msgC <-chan StreamMessage) {
+func (ps *PriceServer) handleMessages(msgC <-chan StreamMessage) {
 	for msg := range msgC {
 		tick := tickPool.Get().(*instrumentTick)
 		if err := json.Unmarshal(msg.RawMessage, tick); err != nil {

@@ -456,9 +456,9 @@ func (c *Client) FullEventHistory() (*url.URL, error) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// eventServer
+// EventServer
 
-type eventServer struct {
+type EventServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	chanMap       *eventChans
 	srv           *messageServer
@@ -473,7 +473,7 @@ type (
 // environment requires that at least one accountId is provided.
 //
 // See http://developer.oanda.com/docs/v1/stream/#events-streaming for further information.
-func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
+func (c *Client) NewEventServer(accountId ...int) (*EventServer, error) {
 	req, err := c.NewRequest("GET", "/v1/events", nil)
 	if err != nil {
 		return nil, err
@@ -484,7 +484,7 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 	optionalArgs(q).SetIntArray("accountIds", accountId)
 	req.URL.RawQuery = q.Encode()
 
-	es := &eventServer{
+	es := &EventServer{
 		chanMap: newEventChans(accountId),
 	}
 
@@ -507,17 +507,17 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 //
 // See http://developer.oanda.com/docs/v1/stream/ and http://developer.oanda.com/docs/v1/transactions/
 // for further information.
-func (es *eventServer) ConnectAndHandle(handleFn EventHandlerFunc) (err error) {
+func (es *EventServer) ConnectAndHandle(handleFn EventHandlerFunc) (err error) {
 	es.initServer(handleFn)
 	return es.srv.ConnectAndDispatch()
 }
 
 // Stop terminates the events server and causes ConnectAndHandle() to return.
-func (es *eventServer) Stop() {
+func (es *EventServer) Stop() {
 	es.srv.Stop()
 }
 
-func (es *eventServer) initServer(handleFn EventHandlerFunc) {
+func (es *EventServer) initServer(handleFn EventHandlerFunc) {
 	for _, accId := range es.chanMap.AccountIds() {
 		evtC := make(chan Event, defaultBufferSize)
 		es.chanMap.Set(accId, evtC)
@@ -531,7 +531,7 @@ func (es *eventServer) initServer(handleFn EventHandlerFunc) {
 	return
 }
 
-func (es *eventServer) handleHeartbeats(hbC <-chan time.Time) {
+func (es *EventServer) handleHeartbeats(hbC <-chan time.Time) {
 	for hb := range hbC {
 		if es.HeartbeatFunc != nil {
 			es.HeartbeatFunc(hb)
@@ -539,7 +539,7 @@ func (es *eventServer) handleHeartbeats(hbC <-chan time.Time) {
 	}
 }
 
-func (es *eventServer) handleMessages(msgC <-chan StreamMessage) {
+func (es *EventServer) handleMessages(msgC <-chan StreamMessage) {
 	for msg := range msgC {
 		rawEvent := struct {
 			*evtHeaderContent
