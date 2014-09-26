@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda_test
 
 import (
@@ -42,17 +43,17 @@ func (ts *TestSuite) SetUpSuite(c *check.C) {
 func (ts *TestSuite) TestOrderApi(c *check.C) {
 	expiry := time.Now().Add(5 * time.Minute)
 
-	o, err := ts.c.NewOrder(oanda.Ot_Limit, oanda.Ts_Buy, 2, "eur_usd", 0.75, expiry,
+	o, err := ts.c.NewOrder(oanda.Limit, oanda.Buy, 2, "eur_usd", 0.75, expiry,
 		oanda.UpperBound(1.0), oanda.LowerBound(0.5))
 	c.Assert(err, check.IsNil)
 	c.Log(o)
 	c.Assert(o.OrderId, check.Not(check.Equals), 0)
 	c.Assert(o.Expiry.UTC().Equal(expiry.Truncate(time.Second)), check.Equals, true)
 	c.Assert(o.Instrument, check.Equals, "EUR_USD")
-	c.Assert(o.OrderType, check.Equals, string(oanda.Ot_Limit))
+	c.Assert(o.OrderType, check.Equals, string(oanda.Limit))
 	c.Assert(o.Price, check.Equals, 0.75)
 	c.Assert(o.Units, check.Equals, 2)
-	c.Assert(o.Side, check.Equals, string(oanda.Ts_Buy))
+	c.Assert(o.Side, check.Equals, string(oanda.Buy))
 	c.Assert(o.LowerBound, check.Equals, 0.5)
 	c.Assert(o.UpperBound, check.Equals, 1.0)
 	c.Assert(o.StopLoss, check.Equals, 0.0)

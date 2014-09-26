@@ -12,8 +12,9 @@
 
 ## Testing
 
-* Test getting all transactions.
-* Test error conditions.
+* Test/fix getting full transaction history.
+* Test event polling.
+* Better tests of known error conditions.
 
 ## Documentation
 

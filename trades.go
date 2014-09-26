@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -22,62 +23,62 @@ import (
 )
 
 type NewTradeArg interface {
-	ApplyNewTradeArg(url.Values)
+	applyNewTradeArg(url.Values)
 }
 
-func (lb LowerBound) ApplyNewTradeArg(v url.Values) {
+func (lb LowerBound) applyNewTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("lowerBound", float64(lb))
 }
 
-func (ub UpperBound) ApplyNewTradeArg(v url.Values) {
+func (ub UpperBound) applyNewTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("upperBound", float64(ub))
 }
 
-func (sl StopLoss) ApplyNewTradeArg(v url.Values) {
+func (sl StopLoss) applyNewTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("stopLoss", float64(sl))
 }
 
-func (tp TakeProfit) ApplyNewTradeArg(v url.Values) {
+func (tp TakeProfit) applyNewTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("takeProfit", float64(tp))
 }
 
-func (ts TrailingStop) ApplyNewTradeArg(v url.Values) {
+func (ts TrailingStop) applyNewTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("trailingStop", float64(ts))
 }
 
 type TradesArg interface {
-	ApplyTradesArg(url.Values)
+	applyTradesArg(url.Values)
 }
 
-func (c Count) ApplyTradesArg(v url.Values) {
+func (c Count) applyTradesArg(v url.Values) {
 	optionalArgs(v).SetInt("count", int(c))
 }
 
-func (mi MaxId) ApplyTradesArg(v url.Values) {
+func (mi MaxId) applyTradesArg(v url.Values) {
 	optionalArgs(v).SetInt("maxId", int(mi))
 }
 
-func (i Instrument) ApplyTradesArg(v url.Values) {
+func (i Instrument) applyTradesArg(v url.Values) {
 	v.Set("instrument", string(i))
 }
 
-func (ids Ids) ApplyTradesArg(v url.Values) {
+func (ids Ids) applyTradesArg(v url.Values) {
 	optionalArgs(v).SetIntArray("ids", []int(ids))
 }
 
 type ModifyTradeArg interface {
-	ApplyModifyTradeArg(url.Values)
+	applyModifyTradeArg(url.Values)
 }
 
-func (sl StopLoss) ApplyModifyTradeArg(v url.Values) {
+func (sl StopLoss) applyModifyTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("stopLoss", float64(sl))
 }
 
-func (tp TakeProfit) ApplyModifyTradeArg(v url.Values) {
+func (tp TakeProfit) applyModifyTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("takeProfit", float64(tp))
 }
 
-func (ts TrailingStop) ApplyModifyTradeArg(v url.Values) {
+func (ts TrailingStop) applyModifyTradeArg(v url.Values) {
 	optionalArgs(v).SetFloat("trailingStop", float64(ts))
 }
 
@@ -96,7 +97,7 @@ type Trade struct {
 }
 
 // String implements the Stringer interface.
-func (t Trade) String() string {
+func (t *Trade) String() string {
 	return fmt.Sprintf("Trade{TradeId: %d, Side: %s, Units: %d, Instrument: %s, Price: %f}",
 		t.TradeId, t.Side, t.Units, t.Instrument, t.Price)
 }
@@ -118,7 +119,7 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 	}
 
 	for _, arg := range args {
-		arg.ApplyNewTradeArg(data)
+		arg.applyNewTradeArg(data)
 	}
 
 	// FIXME: Replace this with a TradeCreatedResponse that mimics the structure that is actually
@@ -178,7 +179,7 @@ func (c *Client) Trades(args ...TradesArg) (Trades, error) {
 
 	q := u.Query()
 	for _, arg := range args {
-		arg.ApplyTradesArg(q)
+		arg.applyTradesArg(q)
 	}
 	u.RawQuery = q.Encode()
 	urlStr = u.String()
@@ -197,9 +198,9 @@ func (c *Client) Trades(args ...TradesArg) (Trades, error) {
 // TakeProfit(), TrailingStop()
 func (c *Client) ModifyTrade(tradeId int, arg ModifyTradeArg, args ...ModifyTradeArg) (*Trade, error) {
 	data := url.Values{}
-	arg.ApplyModifyTradeArg(data)
+	arg.applyModifyTradeArg(data)
 	for _, arg := range args {
-		arg.ApplyModifyTradeArg(data)
+		arg.applyModifyTradeArg(data)
 	}
 	t := struct {
 		ApiError

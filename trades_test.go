@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda_test
 
 import (
@@ -22,13 +23,13 @@ import (
 )
 
 func (ts *TestSuite) TestTradeApi(c *check.C) {
-	t, err := ts.c.NewTrade(oanda.Ts_Buy, 2, "eur_usd", oanda.StopLoss(0.5), oanda.TakeProfit(3.0))
+	t, err := ts.c.NewTrade(oanda.Buy, 2, "eur_usd", oanda.StopLoss(0.5), oanda.TakeProfit(3.0))
 	c.Assert(err, check.IsNil)
 	c.Log(t)
 	c.Assert(t.TradeId, check.Not(check.Equals), 0)
 	c.Assert(t.Price, check.Not(check.Equals), 0.0)
 	c.Assert(t.Instrument, check.Equals, "EUR_USD")
-	c.Assert(t.Side, check.Equals, string(oanda.Ts_Buy))
+	c.Assert(t.Side, check.Equals, string(oanda.Buy))
 	c.Assert(t.Units, check.Equals, 2)
 	c.Assert(t.StopLoss, check.Equals, 0.5)
 	c.Assert(t.TakeProfit, check.Equals, 3.0)

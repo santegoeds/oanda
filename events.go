@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -80,25 +81,18 @@ type Event interface {
 	Type() string
 }
 
-// TranId returns the transaction id for the event.
-func (t evtHeader) TranId() int { return t.content.TranId }
-
-// AccountId returns the account id where the event occurred.
-func (t evtHeader) AccountId() int { return t.content.AccountId }
-
-// Time returns the time at which the event occurred.
-func (t evtHeader) Time() time.Time { return t.content.Time }
-
-// Type returns the transaction type.
-func (t evtHeader) Type() string { return t.content.Type }
+func (t *evtHeader) TranId() int     { return t.content.TranId }
+func (t *evtHeader) AccountId() int  { return t.content.AccountId }
+func (t *evtHeader) Time() time.Time { return t.content.Time }
+func (t *evtHeader) Type() string    { return t.content.Type }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
-func (t evtHeader) UnmarshalJSON(data []byte) (err error) {
+func (t *evtHeader) UnmarshalJSON(data []byte) (err error) {
 	return json.Unmarshal(data, &t.content)
 }
 
-// String implementes the Stringer interface.
-func (t evtHeader) String() string {
+// String implementes the fmt.Stringer interface.
+func (t *evtHeader) String() string {
 	return fmt.Sprintf("Event{TranId: %d, AccountId: %d Type: %s}",
 		t.TranId(), t.AccountId(), t.Type())
 }
@@ -106,6 +100,7 @@ func (t evtHeader) String() string {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CREATE
 
+// AccountCreateEvent represents an event of type CREATE.
 type AccountCreateEvent struct {
 	evtHeader
 	body *evtBody
@@ -117,6 +112,7 @@ func (t *AccountCreateEvent) Reason() string       { return t.body.Reason }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MARKET_ORDER_CREATE
 
+// TradeCreateEvent represents an event of type MARKET_ORDER_CREATE
 type TradeCreateEvent struct {
 	evtHeader
 	body *evtBody
@@ -152,6 +148,8 @@ func (t *TradeCreateEvent) TradeReduced() *evtTradeDetail {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // LIMIT_ORDER_CREATE, STOP_ORDER_CREATE, MARKET_IF_TOUCHED_CREATE
 
+// OrderCreateEvent represents an event of type LIMIT_ORDER_CREATE, STOP_ORDER_CREATE or
+// MARKET_IF_TOUCHED_CREATE
 type OrderCreateEvent struct {
 	evtHeader
 	body *evtBody
@@ -174,6 +172,7 @@ func (t *OrderCreateEvent) TrailingStopLossDistance() float64 {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ORDER_UPDATE
 
+// OrderUpdateEvent represents an event of type ORDER_UPDATE
 type OrderUpdateEvent struct {
 	evtHeader
 	body *evtBody
@@ -194,6 +193,7 @@ func (t *OrderUpdateEvent) TrailingStopLossDistance() float64 {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ORDER_CANCEL
 
+// OrderCancelEvent represents and event of type ORDER_CANCEL.
 type OrderCancelEvent struct {
 	evtHeader
 	body *evtBody
@@ -205,6 +205,7 @@ func (t *OrderCancelEvent) Reason() string { return t.body.Reason }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ORDER_FILLED
 
+// OrderFilledEvent represents an event of type ORDER_FILLED.
 type OrderFilledEvent struct {
 	evtHeader
 	body *evtBody
@@ -215,6 +216,7 @@ func (t *OrderFilledEvent) OrderId() int { return t.body.OrderId }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRADE_UPDATE
 
+// TradeUpdateEvent represents an event of type TRADE_UPDATE
 type TradeUpdateEvent struct {
 	evtHeader
 	body *evtBody
@@ -232,6 +234,8 @@ func (t *TradeUpdateEvent) TailingStopLossDistance() float64 { return t.body.Tra
 // TRADE_CLOSE, MIGRATE_TRADE_CLOSE, TAKE_PROFIT_FILLED, STOP_LOSS_FILLED, TRAILING_STOP_FILLED,
 // MARGIN_CLOSEOUT
 
+// TradeCloseEvent represents an event of type TRADE_CLOSE, MIGRATE_TRADE_CLOSE, TAKE_PROFIT_FILLED,
+// STOP_LOSS_FILLED, TRAILING_STOP_FILLED or MARGIN_CLOSEOUT.
 type TradeCloseEvent struct {
 	evtHeader
 	body *evtBody
@@ -249,6 +253,7 @@ func (t *TradeCloseEvent) TradeId() int            { return t.body.TradeId }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MIGRATE_TRADE_OPEN
 
+// MigrateTradeOpenEvent represents an event of type MIGRATE_TRADE_OPEN
 type MigrateTradeOpenEvent struct {
 	evtHeader
 	body *evtBody
@@ -270,6 +275,7 @@ func (t *MigrateTradeOpenEvent) TradeOpened() *evtTradeDetail {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SET_MARGIN_RATE
 
+// SetMarginRateEvent represent and event of type SET_MARGIN_RATE.
 type SetMarginRateEvent struct {
 	evtHeader
 	body *evtBody
@@ -280,6 +286,7 @@ func (t *SetMarginRateEvent) Rate() float64 { return t.body.Rate }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRANSFER_FUNDS
 
+// TransferFundsEvent represents an event of type TRANSFER_FUNDS.
 type TransferFundsEvent struct {
 	evtHeader
 	body *evtBody
@@ -290,6 +297,7 @@ func (t *TransferFundsEvent) Amount() float64 { return t.body.Amount }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DAILY_INTEREST
 
+// DailyInterestEvent represents an event of type DAILY_INTEREST.
 type DailyInterestEvent struct {
 	evtHeader
 	body *evtBody
@@ -300,6 +308,7 @@ func (t *DailyInterestEvent) Interest() float64 { return t.body.Interest }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FEE
 
+// FeeEvent represents an event of type FEE
 type FeeEvent struct {
 	evtHeader
 	body *evtBody
@@ -310,36 +319,40 @@ func (t *FeeEvent) AccountBalance() float64 { return t.body.AccountBalance }
 func (t *FeeEvent) Reason() string          { return t.body.Reason }
 
 type (
-	MinId  int
-	Events []Event
+	MinId int
 )
 
+// EventsArg is an optional argument for method PollEvents.
 type EventsArg interface {
-	ApplyEventsArg(url.Values)
+	applyEventsArg(url.Values)
 }
 
-func (mi MaxId) ApplyEventsArg(v url.Values) {
+func (mi MaxId) applyEventsArg(v url.Values) {
 	optionalArgs(v).SetInt("maxId", int(mi))
 }
 
-func (mi MinId) ApplyEventsArg(v url.Values) {
+func (mi MinId) applyEventsArg(v url.Values) {
 	optionalArgs(v).SetInt("minId", int(mi))
 }
 
-func (c Count) ApplyEventsArg(v url.Values) {
+func (c Count) applyEventsArg(v url.Values) {
 	optionalArgs(v).SetInt("count", int(c))
 }
 
-func (i Instrument) ApplyEventsArg(v url.Values) {
+func (i Instrument) applyEventsArg(v url.Values) {
 	v.Set("instrument", string(i))
 }
 
-func (ids Ids) ApplyEventsArg(v url.Values) {
+func (ids Ids) applyEventsArg(v url.Values) {
 	optionalArgs(v).SetIntArray("ids", []int(ids))
 }
 
-// Events returns an array of events.
-func (c *Client) Events(args ...EventsArg) (Events, error) {
+// PollEvents returns an array of events. Supported optional arguments are MaxId, MinId, Count,
+// Instrument and Ids.
+//
+// See http://developer.oanda.com/docs/v1/transactions/#get-transaction-history for further
+// information.
+func (c *Client) PollEvents(args ...EventsArg) ([]Event, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/transactions", c.accountId)
 	u, err := url.Parse(urlStr)
 	if err != nil {
@@ -347,7 +360,7 @@ func (c *Client) Events(args ...EventsArg) (Events, error) {
 	}
 	data := u.Query()
 	for _, arg := range args {
-		arg.ApplyEventsArg(data)
+		arg.applyEventsArg(data)
 	}
 	u.RawQuery = data.Encode()
 	urlStr = u.String()
@@ -373,8 +386,8 @@ func (c *Client) Events(args ...EventsArg) (Events, error) {
 	return events, nil
 }
 
-// Event returns data for a single transaction.
-func (c *Client) Event(tranId int) (Event, error) {
+// PollEvent returns data for a single event.
+func (c *Client) PollEvent(tranId int) (Event, error) {
 	evtData := struct {
 		ApiError
 		evtHeaderContent
@@ -422,7 +435,7 @@ func asEvent(header *evtHeaderContent, body *evtBody) (Event, error) {
 
 // FullEventHistory returns a url from which a file containing the full transaction history
 // for the account can be downloaded.
-func (c *Client) FullTransactionHistory() (*url.URL, error) {
+func (c *Client) FullEventHistory() (*url.URL, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/alltransactions", c.accountId)
 	req, err := c.NewRequest("GET", urlStr, nil)
 	if err != nil {
@@ -448,18 +461,18 @@ func (c *Client) FullTransactionHistory() (*url.URL, error) {
 type eventServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
 	chanMap       *eventChans
-	srv           *MessageServer
+	srv           *messageServer
 }
 
 type (
-	EventsHandlerFunc func(int, Event)
-	AccountId         int
+	EventHandlerFunc func(int, Event)
 )
 
-// NewEventServer returns an events server to receive events for the specified accounts.
+// NewEventServer returns an server instance for receiving events for the specified accountId(s).
+// If no accountId is specified events for all accountIds are received.  Note that the sandbox
+// environment requires that at least one accountId is provided.
 //
-// If no accountId is specified then events for all accountIds are received.  Note that at
-// least one accountId is required for the sandbox environment.
+// See http://developer.oanda.com/docs/v1/stream/#events-streaming for further information.
 func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 	req, err := c.NewRequest("GET", "/v1/events", nil)
 	if err != nil {
@@ -480,7 +493,7 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 		handleHeartbeatsFn: es.handleHeartbeats,
 	}
 
-	if s, err := c.NewMessageServer(req, streamSrv); err != nil {
+	if s, err := c.newMessageServer(req, streamSrv); err != nil {
 		return nil, err
 	} else {
 		es.srv = s
@@ -489,22 +502,22 @@ func (c *Client) NewEventServer(accountId ...int) (*eventServer, error) {
 	return es, nil
 }
 
-// ConnectAndDispatch starts the event server until Stop is called.  Function handleFn is called
-// for each event that is received.
+// ConnectAndDispatch starts the event server and blocks until Stop() is called.  Function handleFn
+// is called for each event that is received.
 //
 // See http://developer.oanda.com/docs/v1/stream/ and http://developer.oanda.com/docs/v1/transactions/
 // for further information.
-func (es *eventServer) ConnectAndHandle(handleFn EventsHandlerFunc) (err error) {
+func (es *eventServer) ConnectAndHandle(handleFn EventHandlerFunc) (err error) {
 	es.initServer(handleFn)
 	return es.srv.ConnectAndDispatch()
 }
 
-// Stop terminates the events server and causes Run to return.
+// Stop terminates the events server and causes ConnectAndHandle() to return.
 func (es *eventServer) Stop() {
 	es.srv.Stop()
 }
 
-func (es *eventServer) initServer(handleFn EventsHandlerFunc) {
+func (es *eventServer) initServer(handleFn EventHandlerFunc) {
 	for _, accId := range es.chanMap.AccountIds() {
 		evtC := make(chan Event, defaultBufferSize)
 		es.chanMap.Set(accId, evtC)

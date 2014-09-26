@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda_test
 
 import (
@@ -42,7 +43,7 @@ func (ts *TestEventSuite) SetUpTest(c *check.C) {
 }
 
 func (ts *TestEventSuite) TestEventApi(c *check.C) {
-	events, err := ts.c.Events()
+	events, err := ts.c.PollEvents()
 	c.Assert(err, check.IsNil)
 	c.Assert(events, check.HasLen, 2)
 
@@ -73,7 +74,7 @@ func (ts *TestEventSuite) TestEventApi(c *check.C) {
 	_, ok = m["TRANSFER_FUNDS"]
 	c.Assert(ok, check.Equals, true)
 
-	evt, err := ts.c.Event(events[0].TranId())
+	evt, err := ts.c.PollEvent(events[0].TranId())
 	c.Assert(err, check.IsNil)
 
 	c.Log(evt)
@@ -129,6 +130,6 @@ func (ts *TestEventSuite) TestEventServer(c *check.C) {
 
 	time.Sleep(5 * time.Second)
 
-	ts.c.NewOrder(oanda.Ot_Limit, oanda.Ts_Buy, 1, "eur_usd", 0.75, expiry)
+	ts.c.NewOrder(oanda.Limit, oanda.Buy, 1, "eur_usd", 0.75, expiry)
 	wg.Wait()
 }

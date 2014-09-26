@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -29,8 +30,8 @@ type Position struct {
 	AvgPrice   float64 `json:"avgPrice"`
 }
 
-// String implements the Stringer interface.
-func (p Position) String() string {
+// String implements the fmt.Stringer interface.
+func (p *Position) String() string {
 	return fmt.Sprintf("Position{Side: %s, Instrument: %s, Units: %d, AvgPrice: %f}", p.Side,
 		p.Instrument, p.Units, p.AvgPrice)
 }

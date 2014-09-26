@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -33,8 +34,8 @@ type Account struct {
 	PropertyName    []string `json:"accountPropertyName"`
 }
 
-// String implements the Stringer interface.
-func (a Account) String() string {
+// String implements the fmt.Stringer interface.
+func (a *Account) String() string {
 	return fmt.Sprintf("Account{AccountId: %d, Name: %s, Currency: %s}", a.AccountId, a.Name,
 		a.Currency)
 }

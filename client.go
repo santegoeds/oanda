@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -27,9 +28,9 @@ import (
 var debug = false
 
 var (
-	DefaultDateFormat  = DateFormat("RFC3339")
-	DefaultContentType = ContentType("application/x-www-form-urlencoded")
-	DefaultTransport   = &http.Transport{
+	defaultDateFormat  = DateFormat("RFC3339")
+	defaultContentType = ContentType("application/x-www-form-urlencoded")
+	defaultTransport   = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -46,20 +47,20 @@ var (
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // RequestModifiers
 
-// A RequestModifier updates an http.Request before it is passed to an http.Client for execution.
-type RequestModifier interface {
-	Modify(*http.Request)
+// A requestModifier updates an http.Request before it is passed to an http.Client for execution.
+type requestModifier interface {
+	modify(*http.Request)
 }
 
 type TokenAuthenticator string
 
-func (a TokenAuthenticator) Modify(req *http.Request) {
+func (a TokenAuthenticator) modify(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+string(a))
 }
 
 type UsernameAuthenticator string
 
-func (a UsernameAuthenticator) Modify(req *http.Request) {
+func (a UsernameAuthenticator) modify(req *http.Request) {
 	u := req.URL
 	q := u.Query()
 	q.Set("username", string(a))
@@ -68,7 +69,7 @@ func (a UsernameAuthenticator) Modify(req *http.Request) {
 
 type Environment string
 
-func (e Environment) Modify(req *http.Request) {
+func (e Environment) modify(req *http.Request) {
 	u := req.URL
 	envStr := string(e)
 	if envStr == "sandbox" {
@@ -83,13 +84,13 @@ func (e Environment) Modify(req *http.Request) {
 
 type DateFormat string
 
-func (d DateFormat) Modify(req *http.Request) {
+func (d DateFormat) modify(req *http.Request) {
 	req.Header.Set("X-Accept-Datetime-Format", string(d))
 }
 
 type ContentType string
 
-func (c ContentType) Modify(req *http.Request) {
+func (c ContentType) modify(req *http.Request) {
 	if req.Body != nil {
 		req.Header.Set("Content-Type", string(c))
 	}
@@ -99,46 +100,60 @@ func (c ContentType) Modify(req *http.Request) {
 // Client
 
 type Client struct {
-	ReqMods   []RequestModifier
+	reqMods   []requestModifier
 	accountId int
 	*http.Client
 }
 
+// NewFxPracticeClient returns a client instance that connects to Oanda's fxpractice environment. String
+// token should be set to the generated personal access token.
+//
+// See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewFxPracticeClient(token string) (*Client, error) {
 	return newClient(Environment("fxpractice"), TokenAuthenticator(token)), nil
 }
 
+// NewFxTradeClient returns a client instance that connects to Oanda's fxtrade environment. String token
+// should be set to the generated personal access token.
+//
+// See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewFxTradeClient(token string) (*Client, error) {
 	return newClient(Environment("fxtrade"), TokenAuthenticator(token)), nil
 }
 
+// NewSandboxClient returns a client instance that connects to Oanda's fxsandbox environment. Creating a
+// client will create a user in the sandbox environment with wich all further calls with be authenticated.
+//
+// See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewSandboxClient() (*Client, error) {
 	c := newClient(Environment("sandbox"))
 	if userName, err := initSandboxAccount(c); err != nil {
 		return nil, err
 	} else {
-		c.ReqMods = append(c.ReqMods, UsernameAuthenticator(userName))
+		c.reqMods = append(c.reqMods, UsernameAuthenticator(userName))
 	}
 	return c, nil
 }
 
-// SelectAccount configures the account for which requests are executed.  AccountId 0 means that
-// further requests are for all accounts.
+// SelectAccount configures the account for which subsequent trades and orders are.  Use AccountId 0 to
+// disable account selection.
 func (c *Client) SelectAccount(accountId int) {
 	c.accountId = accountId
 }
 
+// NewRequest creates a new http request.
 func (c *Client) NewRequest(method, urlStr string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequest(method, urlStr, body)
 	if err != nil {
 		return nil, err
 	}
-	for _, reqMod := range c.ReqMods {
-		reqMod.Modify(req)
+	for _, reqMod := range c.reqMods {
+		reqMod.modify(req)
 	}
 	return req, nil
 }
 
+// CancelRequest aborts an in-progress http request.
 func (c *Client) CancelRequest(req *http.Request) {
 	type canceler interface {
 		CancelRequest(*http.Request)
@@ -152,11 +167,13 @@ func (c *Client) CancelRequest(req *http.Request) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PollRequest
 
+// PollRequest represents an http request that is executed repeatedly.
 type PollRequest struct {
 	c   *Client
 	req *http.Request
 }
 
+// Poll repeats the http request with which PollRequest was created.
 func (pr *PollRequest) Poll() (*http.Response, error) {
 	rsp, err := pr.c.Do(pr.req)
 	if err != nil {
@@ -169,22 +186,22 @@ func (pr *PollRequest) Poll() (*http.Response, error) {
 	return rsp, nil
 }
 
-func newClient(reqMod ...RequestModifier) *Client {
+func newClient(reqMod ...requestModifier) *Client {
 	c := Client{
-		ReqMods: []RequestModifier{
-			DefaultDateFormat,
-			DefaultContentType,
+		reqMods: []requestModifier{
+			defaultDateFormat,
+			defaultContentType,
 		},
 		Client: &http.Client{
-			Transport: DefaultTransport,
+			Transport: defaultTransport,
 		},
 	}
-	c.ReqMods = append(c.ReqMods, reqMod...)
+	c.reqMods = append(c.reqMods, reqMod...)
 	return &c
 }
 
 // initSandboxAccount creates a new test account in the sandbox environment and adds a
-// RequestModifier for authentication to the client.
+// requestModifier for authentication to the client.
 func initSandboxAccount(c *Client) (string, error) {
 	v := struct {
 		ApiError
@@ -198,11 +215,11 @@ func initSandboxAccount(c *Client) (string, error) {
 	return v.Username, nil
 }
 
-type ReturnCodeChecker interface {
-	CheckReturnCode() error
+type returnCodeChecker interface {
+	checkReturnCode() error
 }
 
-// ApiError hold error details as returned by the Oanda servers.
+// ApiError holds error details as returned by the Oanda servers.
 type ApiError struct {
 	Code     int    `json:"code"`
 	Message  string `json:"message"`
@@ -214,18 +231,18 @@ func (ae *ApiError) Error() string {
 		ae.Code, ae.Message, ae.MoreInfo)
 }
 
-func (ae *ApiError) CheckReturnCode() error {
+func (ae *ApiError) checkReturnCode() error {
 	if ae.Code != 0 {
 		return ae
 	}
 	return nil
 }
 
-func getAndDecode(c *Client, urlStr string, vp ReturnCodeChecker) error {
+func getAndDecode(c *Client, urlStr string, vp returnCodeChecker) error {
 	return requestAndDecode(c, "GET", urlStr, nil, vp)
 }
 
-func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp ReturnCodeChecker) error {
+func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp returnCodeChecker) error {
 	var rdr io.Reader
 	if len(data) > 0 {
 		rdr = strings.NewReader(data.Encode())
@@ -244,7 +261,7 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp Retu
 	if err = dec.Decode(vp); err != nil {
 		return err
 	}
-	if err = vp.CheckReturnCode(); err != nil {
+	if err = vp.checkReturnCode(); err != nil {
 		return err
 	}
 	return nil

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -35,7 +36,7 @@ type InstrumentInfo struct {
 	} `json:"interestRate"`
 }
 
-func (ii InstrumentInfo) String() string {
+func (ii *InstrumentInfo) String() string {
 	return fmt.Sprintf("InstrumentInfo{DisplayName: %s, Pip: %f, MarginRate: %f}", ii.DisplayName,
 		ii.Pip, ii.MarginRate)
 }
@@ -43,19 +44,22 @@ func (ii InstrumentInfo) String() string {
 type InstrumentField string
 
 const (
-	If_DisplayName     InstrumentField = "displayName"
-	If_Pip             InstrumentField = "pip"
-	If_MaxTradeUnits   InstrumentField = "maxTradeUnits"
-	If_Precision       InstrumentField = "precision"
-	If_MaxTrailingStop InstrumentField = "maxTrailingStop"
-	If_MinTrailingStop InstrumentField = "minTrailingStop"
-	If_MarginRate      InstrumentField = "marginRate"
-	If_Halted          InstrumentField = "halted"
-	If_InterestRate    InstrumentField = "interestRate"
+	DisplayNameField     InstrumentField = "displayName"
+	PipField             InstrumentField = "pip"
+	MaxTradeUnitsField   InstrumentField = "maxTradeUnits"
+	PrecisionField       InstrumentField = "precision"
+	MaxTrailingStopField InstrumentField = "maxTrailingStop"
+	MinTrailingStopField InstrumentField = "minTrailingStop"
+	MarginRateField      InstrumentField = "marginRate"
+	HaltedField          InstrumentField = "halted"
+	InterestRateField    InstrumentField = "interestRate"
 )
 
-// Instruments returns the information of all instruments known to Oanda.
-func (c *Client) Instruments(instrs []string, fields []InstrumentField) (map[string]InstrumentInfo, error) {
+// Instruments returns instrument information.  Only the specified instruments are returned if instruments
+// is not nil.  If fields is not nil additional information fields is included.
+//
+// See http://developer.oanda.com/docs/v1/rates/#get-an-instrument-list for further information.
+func (c *Client) Instruments(instruments []string, fields []InstrumentField) (map[string]InstrumentInfo, error) {
 
 	u, err := url.Parse("/v1/instruments")
 	if err != nil {
@@ -63,8 +67,8 @@ func (c *Client) Instruments(instrs []string, fields []InstrumentField) (map[str
 	}
 
 	q := u.Query()
-	if len(instrs) > 0 {
-		q.Set("instruments", strings.Join(instrs, ","))
+	if len(instruments) > 0 {
+		q.Set("instruments", strings.ToUpper(strings.Join(instruments, ",")))
 	}
 	if len(fields) > 0 {
 		ss := make([]string, len(fields))
@@ -95,6 +99,7 @@ func (c *Client) Instruments(instrs []string, fields []InstrumentField) (map[str
 }
 
 type (
+	// Granularity determines the interval at which historic instrument prices are converted into candles.
 	Granularity string
 )
 
@@ -122,48 +127,79 @@ const (
 	M   Granularity = "M"
 )
 
+// CandlesArg implements optional arguments for MidpointCandles and BidAskCandles.
 type CandlesArg interface {
-	ApplyCandlesArg(url.Values)
+	applyCandlesArg(url.Values)
 }
 
 type (
-	StartTime         time.Time
-	EndTime           time.Time
-	IncludeFirst      bool
-	DailyAlignment    int
+	// Optional argument for PollMidpriceCandles and PollBidAskCandles to specify the start time from which
+	// instrument history should be included.
+	//
+	// See http://developer.oanda.com/docs/v1/rates/#retrieve-instrument-history for further information.
+	StartTime time.Time
+
+	// Optional argument for PollMidpriceCandles and PollBidAskCandles to specify the end time of until which
+	// instrument history should be included.
+	//
+	// See http://developer.oanda.com/docs/v1/rates/#retrieve-instrument-history for further information.
+	EndTime time.Time
+
+	// Optional argument for PollMidpriceCandles and PollBidAskCandles to indicate whether the candle that
+	// starts at StartTime should be included.
+	//
+	// See http://developer.oanda.com/docs/v1/rates/#retrieve-instrument-history for further information.
+	IncludeFirst bool
+
+	// Optional argument for PollMidpriceCandles and PollBidAskCandles to indicate the hour at which
+	// candles hould be aligned.  Only relevant for hourly or greater granularities.
+	//
+	// See http://developer.oanda.com/docs/v1/rates/#retrieve-instrument-history for further information.
+	DailyAlignment int
+
+	// Optional argument for PollMidpriceCandles and PollBidAskCandles that indicates the timezone to use
+	// when aligning candles with DailyAlignment.
+	//
+	// See http://developer.oanda.com/docs/v1/rates/#retrieve-instrument-history for further information.
 	AlignmentTimezone time.Location
-	WeeklyAlignment   time.Weekday
+
+	// Optional argument for PollMidpriceCandles and PollBidAskCandles to indicate the weekday at which
+	// candles should be aligned. Only relevant for weekly granularity.
+	//
+	// See http://developer.oanda.com/docs/v1/rates/#retrieve-instrument-history for further information.
+	WeeklyAlignment time.Weekday
 )
 
-func (c Count) ApplyCandlesArg(v url.Values) {
+func (c Count) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetInt("count", int(c))
 }
 
-func (s StartTime) ApplyCandlesArg(v url.Values) {
+func (s StartTime) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetTime("start", time.Time(s))
 }
 
-func (e EndTime) ApplyCandlesArg(v url.Values) {
+func (e EndTime) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetTime("end", time.Time(e))
 }
 
-func (b IncludeFirst) ApplyCandlesArg(v url.Values) {
+func (b IncludeFirst) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetBool("includeFirst", bool(b))
 }
 
-func (da DailyAlignment) ApplyCandlesArg(v url.Values) {
+func (da DailyAlignment) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetInt("dailyAlignment", int(da))
 }
 
-func (atz AlignmentTimezone) ApplyCandlesArg(v url.Values) {
+func (atz AlignmentTimezone) applyCandlesArg(v url.Values) {
 	loc := time.Location(atz)
 	v.Set("alignmentTimezone", loc.String())
 }
 
-func (wa WeeklyAlignment) ApplyCandlesArg(v url.Values) {
+func (wa WeeklyAlignment) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetStringer("weeklyAlignment", time.Weekday(wa))
 }
 
+// MidpointCandles represents instrument history with a specific granularity.
 type MidpointCandles struct {
 	Instrument  string      `json:"instrument"`
 	Granularity Granularity `json:"granularity"`
@@ -178,6 +214,7 @@ type MidpointCandles struct {
 	} `json:"candles"`
 }
 
+// BidAskCandles represents Bid and Ask instrument history with a specific granularity.
 type BidAskCandles struct {
 	Instrument  string      `json:"instrument"`
 	Granularity Granularity `json:"granularity"`
@@ -196,15 +233,14 @@ type BidAskCandles struct {
 	} `json:"candles"`
 }
 
-// MidpointCandles returns historic price information for an instrument.
-func (c *Client) MidpointCandles(instrument string, granularity Granularity,
+// PollMidpointCandles returns historic midpoint prices for an instrument.
+func (c *Client) PollMidpointCandles(instrument string, granularity Granularity,
 	args ...CandlesArg) (*MidpointCandles, error) {
 
 	u, err := c.newCandlesURL(instrument, granularity, "midpoint", args...)
 	if err != nil {
 		return nil, err
 	}
-
 	candles := struct {
 		ApiError
 		MidpointCandles
@@ -215,15 +251,14 @@ func (c *Client) MidpointCandles(instrument string, granularity Granularity,
 	return &candles.MidpointCandles, nil
 }
 
-// BidAskCandles returns historic price information for an instrument.
-func (c *Client) BidAskCandles(instrument string, granularity Granularity,
+// PollBidAskCandles returns historic bid- and ask prices for an instrument.
+func (c *Client) PollBidAskCandles(instrument string, granularity Granularity,
 	args ...CandlesArg) (*BidAskCandles, error) {
 
 	u, err := c.newCandlesURL(instrument, granularity, "bidask", args...)
 	if err != nil {
 		return nil, err
 	}
-
 	candles := struct {
 		ApiError
 		BidAskCandles
@@ -246,7 +281,7 @@ func (c *Client) newCandlesURL(instrument string, granularity Granularity, candl
 	q.Set("candleFormat", candleFormat)
 	q.Set("granularity", string(granularity))
 	for _, arg := range args {
-		arg.ApplyCandlesArg(q)
+		arg.applyCandlesArg(q)
 	}
 	u.RawQuery = q.Encode()
 

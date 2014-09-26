@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -129,9 +130,9 @@ func (ss StreamServer) HandleHeartbeats(hbC <-chan time.Time) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// MessageServer
+// messageServer
 
-type MessageServer struct {
+type messageServer struct {
 	sh     StreamHandler
 	c      *Client
 	mtx    sync.Mutex
@@ -139,10 +140,10 @@ type MessageServer struct {
 	runFlg bool
 }
 
-// NewMessageServer returns a new instance of MessageServer that forwards each message and
+// newMessageServer returns a new instance of messageServer that forwards each message and
 // heartbeat to the specified StreamHandler.
-func (c *Client) NewMessageServer(req *http.Request, sh StreamHandler) (*MessageServer, error) {
-	s := MessageServer{
+func (c *Client) newMessageServer(req *http.Request, sh StreamHandler) (*messageServer, error) {
+	s := messageServer{
 		sh:  sh,
 		c:   c,
 		req: req,
@@ -151,7 +152,7 @@ func (c *Client) NewMessageServer(req *http.Request, sh StreamHandler) (*Message
 }
 
 // ConnectAndDispatch
-func (s *MessageServer) ConnectAndDispatch() (err error) {
+func (s *messageServer) ConnectAndDispatch() (err error) {
 	if err = s.initServer(); err != nil {
 		return
 	}
@@ -163,15 +164,15 @@ func (s *MessageServer) ConnectAndDispatch() (err error) {
 	return
 }
 
-// Stop stops the MessageServer.
-func (s *MessageServer) Stop() {
+// Stop stops the messageServer.
+func (s *messageServer) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.runFlg = false
 	cancelRequest(s)
 }
 
-func (s *MessageServer) initServer() error {
+func (s *messageServer) initServer() error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if s.runFlg {
@@ -181,7 +182,7 @@ func (s *MessageServer) initServer() error {
 	return nil
 }
 
-func (s *MessageServer) readMessages() error {
+func (s *messageServer) readMessages() error {
 	hbC := make(chan time.Time)
 	defer close(hbC)
 	go s.sh.HandleHeartbeats(hbC)
@@ -257,7 +258,7 @@ func (s *MessageServer) readMessages() error {
 	}
 }
 
-func cancelRequest(s *MessageServer) {
+func cancelRequest(s *messageServer) {
 	if s.req != nil {
 		s.c.CancelRequest(s.req)
 	}

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -101,7 +102,7 @@ func (pp *PricePoller) Poll() (Prices, error) {
 	if err = dec.Decode(&v); err != nil {
 		return nil, err
 	}
-	if err = v.CheckReturnCode(); err != nil {
+	if err = v.checkReturnCode(); err != nil {
 		return nil, err
 	}
 	prices := make(Prices)
@@ -128,7 +129,7 @@ type TickHandlerFunc func(instr string, pp PriceTick)
 
 type priceServer struct {
 	HeartbeatFunc HeartbeatHandlerFunc
-	srv           *MessageServer
+	srv           *messageServer
 	chanMap       *tickChans
 }
 
@@ -159,7 +160,7 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*priceServer, e
 		handleHeartbeatsFn: ps.handleHeartbeats,
 	}
 
-	if srv, err := c.NewMessageServer(req, &streamSrv); err != nil {
+	if srv, err := c.newMessageServer(req, &streamSrv); err != nil {
 		return nil, err
 	} else {
 		ps.srv = srv

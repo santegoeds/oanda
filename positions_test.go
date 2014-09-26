@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda_test
 
 import (
@@ -20,7 +21,7 @@ import (
 )
 
 func (ts *TestSuite) TestPositionsApi(c *check.C) {
-	t, err := ts.c.NewTrade(oanda.Ts_Buy, 1, "eur_usd")
+	t, err := ts.c.NewTrade(oanda.Buy, 1, "eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Log(t)
 

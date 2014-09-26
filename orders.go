@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package oanda
 
 import (
@@ -27,12 +28,12 @@ type (
 )
 
 const (
-	Ts_Buy  TradeSide = "buy"
-	Ts_Sell TradeSide = "sell"
+	Buy  TradeSide = "buy"
+	Sell TradeSide = "sell"
 
-	Ot_MarketIfTouched OrderType = "marketIfTouched"
-	Ot_Limit           OrderType = "limit"
-	Ot_Stop            OrderType = "stop"
+	MarketIfTouched OrderType = "marketIfTouched"
+	Limit           OrderType = "limit"
+	Stop            OrderType = "stop"
 )
 
 type Order struct {
@@ -52,8 +53,8 @@ type Order struct {
 	LowerBound     float64   `json:"lowerBound"`
 }
 
-// String implements the Stringer interface.
-func (o Order) String() string {
+// String implements the fmt.Stringer interface.
+func (o *Order) String() string {
 	return fmt.Sprintf("Order{OrderId: %d, Side: %s, Units: %d, Instrument: %s}", o.OrderId, o.Side,
 		o.Units, o.Instrument)
 }
@@ -68,27 +69,28 @@ type (
 	TrailingStop float64
 )
 
+// NewOrderArg represents an optional argument for method NewOrder.
 type NewOrderArg interface {
-	ApplyNewOrderArg(url.Values)
+	applyNewOrderArg(url.Values)
 }
 
-func (lb LowerBound) ApplyNewOrderArg(v url.Values) {
+func (lb LowerBound) applyNewOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("lowerBound", float64(lb))
 }
 
-func (ub UpperBound) ApplyNewOrderArg(v url.Values) {
+func (ub UpperBound) applyNewOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("upperBound", float64(ub))
 }
 
-func (sl StopLoss) ApplyNewOrderArg(v url.Values) {
+func (sl StopLoss) applyNewOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("stopLoss", float64(sl))
 }
 
-func (tp TakeProfit) ApplyNewOrderArg(v url.Values) {
+func (tp TakeProfit) applyNewOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("takeProfit", float64(tp))
 }
 
-func (ts TrailingStop) ApplyNewOrderArg(v url.Values) {
+func (ts TrailingStop) applyNewOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("trailingStop", float64(ts))
 }
 
@@ -115,7 +117,7 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 		"expiry":     {expiry.UTC().Format(time.RFC3339)},
 	}
 	for _, arg := range args {
-		arg.ApplyNewOrderArg(data)
+		arg.applyNewOrderArg(data)
 	}
 
 	rspData := struct {
@@ -137,7 +139,7 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 	return &o, nil
 }
 
-// Order returns information for an existing order.
+// Order returns information about an existing order.
 func (c *Client) Order(orderId int) (*Order, error) {
 	o := struct {
 		ApiError
@@ -156,19 +158,20 @@ type (
 	Instrument string
 )
 
+// OrderArgs represents an optional argument for method Orders.
 type OrdersArg interface {
-	ApplyOrdersArg(url.Values)
+	applyOrdersArg(url.Values)
 }
 
-func (mi MaxId) ApplyOrdersArg(v url.Values) {
+func (mi MaxId) applyOrdersArg(v url.Values) {
 	optionalArgs(v).SetInt("maxId", int(mi))
 }
 
-func (cnt Count) ApplyOrdersArg(v url.Values) {
+func (cnt Count) applyOrdersArg(v url.Values) {
 	optionalArgs(v).SetInt("count", int(cnt))
 }
 
-func (in Instrument) ApplyOrdersArg(v url.Values) {
+func (in Instrument) applyOrdersArg(v url.Values) {
 	v.Set("instrument", string(in))
 }
 
@@ -181,7 +184,7 @@ func (c *Client) Orders(args ...OrdersArg) (Orders, error) {
 
 	q := u.Query()
 	for _, arg := range args {
-		arg.ApplyOrdersArg(q)
+		arg.applyOrdersArg(q)
 	}
 	u.RawQuery = q.Encode()
 
@@ -201,48 +204,49 @@ type (
 	Price  float64
 )
 
+// ModifyOrderArg represents an opional argument for method ModifyOrder.
 type ModifyOrderArg interface {
-	ApplyModifyOrderArg(url.Values)
+	applyModifyOrderArg(url.Values)
 }
 
-func (u Units) ApplyModifyOrderArg(v url.Values) {
+func (u Units) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetInt("units", int(u))
 }
 
-func (p Price) ApplyModifyOrderArg(v url.Values) {
+func (p Price) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("price", float64(p))
 }
 
-func (e Expiry) ApplyModifyOrderArg(v url.Values) {
+func (e Expiry) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetTime("expiry", time.Time(e))
 }
 
-func (lb LowerBound) ApplyModifyOrderArg(v url.Values) {
+func (lb LowerBound) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("lowerBound", float64(lb))
 }
 
-func (ub UpperBound) ApplyModifyOrderArg(v url.Values) {
+func (ub UpperBound) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("upperBound", float64(ub))
 }
 
-func (sl StopLoss) ApplyModifyOrderArg(v url.Values) {
+func (sl StopLoss) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("stopLoss", float64(sl))
 }
 
-func (tp TakeProfit) ApplyModifyOrderArg(v url.Values) {
+func (tp TakeProfit) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("takeProfit", float64(tp))
 }
 
-func (ts TrailingStop) ApplyModifyOrderArg(v url.Values) {
+func (ts TrailingStop) applyModifyOrderArg(v url.Values) {
 	optionalArgs(v).SetFloat("trailingStop", float64(ts))
 }
 
 // ModifyOrder updates an open order.
 func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrderArg) (*Order, error) {
 	data := url.Values{}
-	arg.ApplyModifyOrderArg(data)
+	arg.applyModifyOrderArg(data)
 	for _, arg = range args {
-		arg.ApplyModifyOrderArg(data)
+		arg.applyModifyOrderArg(data)
 	}
 	o := struct {
 		ApiError
