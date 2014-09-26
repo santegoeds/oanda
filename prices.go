@@ -127,13 +127,16 @@ var tickPool = sync.Pool{
 
 type TickHandlerFunc func(instr string, pp PriceTick)
 
+// A PriceServer receives PriceTicks for one or more instrument(s).
 type PriceServer struct {
+	// If HeartbeatFunc is not nil it is invoked once for every heartbeat message that the
+	// PriceServer receives.
 	HeartbeatFunc HeartbeatHandlerFunc
 	srv           *messageServer
 	chanMap       *tickChans
 }
 
-// NewPriceServer creates a Price Server for receiving and handling Ticks.
+// NewPriceServer returns a PriceServer instance for receiving and handling Ticks.
 func (c *Client) NewPriceServer(instr string, instrs ...string) (*PriceServer, error) {
 	instrs = append(instrs, instr)
 	for i, instr := range instrs {

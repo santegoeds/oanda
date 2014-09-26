@@ -458,7 +458,10 @@ func (c *Client) FullEventHistory() (*url.URL, error) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // EventServer
 
+// An EventServer receives events (aka transactions) for one or more accountId(s).
 type EventServer struct {
+	// If HeartbeatFunc is not nil it is invoked once for every heartbeat message that the
+	// EventServer receives.
 	HeartbeatFunc HeartbeatHandlerFunc
 	chanMap       *eventChans
 	srv           *messageServer
