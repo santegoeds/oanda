@@ -16,6 +16,7 @@ package oanda
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -110,6 +111,9 @@ type Client struct {
 //
 // See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewFxPracticeClient(token string) (*Client, error) {
+	if token == "" {
+		return nil, errors.New("No FxPractice access token")
+	}
 	return newClient(Environment("fxpractice"), TokenAuthenticator(token)), nil
 }
 
@@ -118,6 +122,9 @@ func NewFxPracticeClient(token string) (*Client, error) {
 //
 // See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewFxTradeClient(token string) (*Client, error) {
+	if token == "" {
+		return nil, errors.New("No FxTrade access token")
+	}
 	return newClient(Environment("fxtrade"), TokenAuthenticator(token)), nil
 }
 

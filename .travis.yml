@@ -1,4 +1,8 @@
 language: go
-script: go test -check.vv ./...
+script:
+    - go test -check.vv ./...
 install:
-    - go get gopkg.in/check.v1
+  - go get gopkg.in/check.v1
+env:
+  global:
+    - secure: RsNugq1R2VlLqa8hZzcccagr+4D6fMeoxt2T7YK4nzSiFA3zkw0IwCDO9oMSuDHcVrmuPVUJIi8QUsGNOzp0uffuSNtc8RLIXRZuGbeb0v8joSSdYyDXB2O6RrW6gipmq8JGgBm4KOp+QFLw1VH4ilPfZ/gHsyMA171TVjicyAc=
