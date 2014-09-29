@@ -5,11 +5,12 @@
 OANDA for Go is a library to access the [OANDA REST API](http://developer.oanda.com) from open source programming language [Go](http://www.golang.org).
 
 [OANDA](http://www.oanda.com) is a technology company that provides internet based forex trading and currency information. [OANDA](http://www.oanda.com) provide access to their services via a free 
-REST API. OANDA for Go is not affiliated or endorsed by [OANDA](http://www.oanda.com).
+REST API. [OANDA](http://www.oanda.com) is not affiliated and does not endorse or recommend 
+OANDA for Go.
 
 Please note that this is an alpha release and the code is likely to contain bugs.
 
-## Example
+## Usage
 
 ```Go
 package main
