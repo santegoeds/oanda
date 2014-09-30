@@ -77,7 +77,7 @@ func (ts *TestSuite) TestPriceServer(c *check.C) {
 	ps, err := ts.c.NewPriceServer("eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
-	timeout := 2 * time.Minute
+	timeout := 5 * time.Minute
 	t := time.AfterFunc(timeout, func() {
 		c.Errorf("Failed to receive 3 ticks in %d minutes.", timeout/time.Minute)
 		ps.Stop()
