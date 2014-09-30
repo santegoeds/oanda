@@ -8,11 +8,6 @@ import (
 	"gopkg.in/check.v1"
 )
 
-func NewFxPracticeClient() (*oanda.Client, error) {
-	token := os.Getenv("FXPRACTICE_TOKEN")
-	return oanda.NewFxPracticeClient(token)
-}
-
 type TestLabsSuite struct {
 	c *oanda.Client
 }
@@ -20,9 +15,14 @@ type TestLabsSuite struct {
 var _ = check.Suite(&TestLabsSuite{})
 
 func (ts *TestLabsSuite) SetUpSuite(c *check.C) {
-	client, err := NewFxPracticeClient()
-	c.Assert(err, check.IsNil)
-	ts.c = client
+	token := os.Getenv("FXPRACTICE_TOKEN")
+	if token == "" {
+		c.Skip("FXPRACTICE_TOKEN is not set")
+	} else {
+		client, err := oanda.NewFxPracticeClient(token)
+		c.Assert(err, check.IsNil)
+		ts.c = client
+	}
 }
 
 func (ts *TestLabsSuite) TestCalendar(c *check.C) {
