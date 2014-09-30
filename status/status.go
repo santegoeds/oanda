@@ -267,13 +267,13 @@ func StatusImages() ([]ApiStatusImage, error) {
 		ClientError
 		Images []ApiStatusImage `json:"images"`
 	}{}
-	if err := getStatus("/v1/status-images"); err != nil {
+	if err := getStatus("/v1/status-images", &v); err != nil {
 		return nil, err
 	}
 	if v.IsError {
 		return nil, &v.ClientError
 	}
-	return &v.Images
+	return v.Images, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
