@@ -16,6 +16,7 @@ package oanda
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -152,6 +153,8 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*PriceServer, e
 	u := req.URL
 	q := u.Query()
 	q.Set("instruments", strings.Join(instrs, ","))
+	q.Set("accountId", strconv.Itoa(c.accountId))
+
 	u.RawQuery = q.Encode()
 
 	ps := PriceServer{
