@@ -17,6 +17,7 @@ package oanda
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -76,6 +77,9 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (ma
 			ss[i] = string(v)
 		}
 		q.Set("fields", strings.Join(ss, ","))
+	}
+	if c.accountId != 0 {
+		q.Set("accountId", strconv.Itoa(c.accountId))
 	}
 	u.RawQuery = q.Encode()
 
