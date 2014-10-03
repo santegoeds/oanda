@@ -17,6 +17,7 @@ package oanda
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -76,6 +77,9 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (ma
 			ss[i] = string(v)
 		}
 		q.Set("fields", strings.Join(ss, ","))
+	}
+	if c.accountId != 0 {
+		q.Set("accountId", strconv.Itoa(c.accountId))
 	}
 	u.RawQuery = q.Encode()
 
@@ -280,6 +284,7 @@ func (c *Client) newCandlesURL(instrument string, granularity Granularity, candl
 	q := u.Query()
 	q.Set("candleFormat", candleFormat)
 	q.Set("granularity", string(granularity))
+	q.Set("instrument", instrument)
 	for _, arg := range args {
 		arg.applyCandlesArg(q)
 	}
