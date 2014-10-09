@@ -20,7 +20,22 @@ import (
 	"gopkg.in/check.v1"
 )
 
-func (ts *TestSuite) TestPositionsApi(c *check.C) {
+type TestPositionSuite struct {
+	c *oanda.Client
+}
+
+var _ = check.Suite(&TestPositionSuite{})
+
+func (ts *TestPositionSuite) SetUpSuite(c *check.C) {
+	ts.c = NewTestClient(c, true)
+}
+
+func (ts *TestPositionSuite) TearDownSuite(c *check.C) {
+	CancelAllOrders(c, ts.c)
+	CloseAllPositions(c, ts.c)
+}
+
+func (ts *TestPositionSuite) TestPositionsApi(c *check.C) {
 	t, err := ts.c.NewTrade(oanda.Buy, 1, "eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Log(t)
@@ -52,7 +67,7 @@ func (ts *TestSuite) TestPositionsApi(c *check.C) {
 	c.Assert(positions, check.HasLen, 0)
 }
 
-func (ts *TestSuite) TestNonexistingPosition(c *check.C) {
+func (ts *TestPositionSuite) TestNonexistingPosition(c *check.C) {
 	_, err := ts.c.Position("eur_gbp")
 	c.Assert(err, check.NotNil)
 

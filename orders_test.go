@@ -22,25 +22,21 @@ import (
 	"gopkg.in/check.v1"
 )
 
-type TestSuite struct {
+type TestOrderSuite struct {
 	c *oanda.Client
 }
 
-var _ = check.Suite(&TestSuite{})
+var _ = check.Suite(&TestOrderSuite{})
 
-func (ts *TestSuite) SetUpSuite(c *check.C) {
-	client, err := oanda.NewSandboxClient()
-	c.Assert(err, check.IsNil)
-	ts.c = client
-
-	accs, err := client.Accounts()
-	c.Assert(err, check.IsNil)
-	c.Assert(accs, check.HasLen, 1)
-
-	ts.c.SelectAccount(accs[0].AccountId)
+func (ts *TestOrderSuite) SetUpSuite(c *check.C) {
+	ts.c = NewTestClient(c, true)
 }
 
-func (ts *TestSuite) TestOrderApi(c *check.C) {
+func (ts *TestOrderSuite) TearDownSuite(c *check.C) {
+	CancelAllOrders(c, ts.c)
+}
+
+func (ts *TestOrderSuite) TestOrderApi(c *check.C) {
 	expiry := time.Now().Add(5 * time.Minute)
 
 	o, err := ts.c.NewOrder(oanda.Limit, oanda.Buy, 2, "eur_usd", 0.75, expiry,

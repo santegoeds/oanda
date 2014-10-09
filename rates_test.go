@@ -16,9 +16,21 @@ package oanda_test
 
 import (
 	"gopkg.in/check.v1"
+
+	"github.com/santegoeds/oanda"
 )
 
-func (ts *TestSuite) TestInstruments(c *check.C) {
+type TestRatesSuite struct {
+	c *oanda.Client
+}
+
+var _ = check.Suite(&TestRatesSuite{})
+
+func (ts *TestRatesSuite) SetUpSuite(c *check.C) {
+	ts.c = NewTestClient(c, true)
+}
+
+func (ts *TestRatesSuite) TestRatesInstruments(c *check.C) {
 	instruments, err := ts.c.Instruments(nil, nil)
 	c.Assert(err, check.IsNil)
 	c.Log(instruments)

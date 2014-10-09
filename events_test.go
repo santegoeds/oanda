@@ -29,70 +29,57 @@ type TestEventSuite struct {
 
 var _ = check.Suite(&TestEventSuite{})
 
-func (ts *TestEventSuite) SetUpTest(c *check.C) {
-	client, err := oanda.NewSandboxClient()
-	c.Assert(err, check.IsNil)
-	ts.c = client
+func (ts *TestEventSuite) SetUpSuite(c *check.C) {
+	ts.c = NewTestClient(c, true)
+}
 
-	accs, err := client.Accounts()
-	c.Assert(err, check.IsNil)
-	c.Assert(accs, check.HasLen, 1)
-
-	ts.AccountId = accs[0].AccountId
-	ts.c.SelectAccount(ts.AccountId)
+func (ts *TestEventSuite) TearDownSuite(c *check.C) {
+	CancelAllOrders(c, ts.c)
 }
 
 func (ts *TestEventSuite) TestEventApi(c *check.C) {
-	events, err := ts.c.PollEvents()
+	expiry := time.Now().Add(24 * time.Hour)
+	_, err := ts.c.NewOrder(oanda.Limit, oanda.Buy, 1, "eur_usd", 0.75, expiry)
 	c.Assert(err, check.IsNil)
-	c.Assert(events, check.HasLen, 2)
 
-	m := make(map[string]bool)
-	for _, evt := range events {
-		m[evt.Type()] = true
+	events, err := ts.c.PollEvents(oanda.Count(1))
+	c.Assert(err, check.IsNil)
+	c.Log(events)
+	c.Assert(events, check.HasLen, 1)
 
-		switch evt.Type() {
-		case "CREATE":
-			accountCreate, ok := evt.(*oanda.AccountCreateEvent)
-			c.Assert(ok, check.Equals, true)
-			c.Check(accountCreate.HomeCurrency(), check.Not(check.Equals), "")
-			c.Check(accountCreate.Reason(), check.Not(check.Equals), "")
+	c.Assert(events[0].AccountId(), check.Equals, ts.c.AccountId())
+	c.Assert(events[0].Type(), check.Equals, "LIMIT_ORDER_CREATE")
 
-		case "TRANSFER_FUNDS":
-			transferFunds, ok := evt.(*oanda.TransferFundsEvent)
-			c.Assert(ok, check.Equals, true)
-			c.Check(transferFunds.Amount(), check.Equals, 100000.)
-
-		}
-	}
-
-	c.Log(m)
-
-	_, ok := m["CREATE"]
+	orderCreate1, ok := events[0].(*oanda.OrderCreateEvent)
 	c.Assert(ok, check.Equals, true)
+	c.Assert(orderCreate1.Instrument(), check.Equals, "EUR_USD")
+	c.Assert(orderCreate1.Side(), check.Equals, "buy")
+	c.Assert(orderCreate1.Units(), check.Equals, 1)
+	c.Assert(orderCreate1.Price(), check.Equals, 0.75)
+	c.Assert(orderCreate1.Expiry().Equal(expiry.Truncate(time.Second)), check.Equals, true)
+	c.Assert(orderCreate1.Reason(), check.Equals, "CLIENT_REQUEST")
 
-	_, ok = m["TRANSFER_FUNDS"]
-	c.Assert(ok, check.Equals, true)
-
-	evt, err := ts.c.PollEvent(events[0].TranId())
+	evt, err := ts.c.PollEvent(orderCreate1.TranId())
 	c.Assert(err, check.IsNil)
 
 	c.Log(evt)
-	c.Check(evt.Type(), check.Equals, events[0].Type())
-	c.Check(evt.AccountId(), check.Equals, events[0].AccountId())
-	c.Check(evt.Time(), check.Equals, events[0].Time())
+	c.Check(evt.Type(), check.Equals, orderCreate1.Type())
+	c.Check(evt.AccountId(), check.Equals, orderCreate1.AccountId())
+	c.Check(evt.Time(), check.Equals, orderCreate1.Time())
 
-	transferFunds1, ok := events[0].(*oanda.TransferFundsEvent)
+	orderCreate2, ok := evt.(*oanda.OrderCreateEvent)
 	c.Assert(ok, check.Equals, true)
 
-	transferFunds2, ok := evt.(*oanda.TransferFundsEvent)
-	c.Assert(ok, check.Equals, true)
-
-	c.Check(transferFunds1.Amount(), check.Equals, transferFunds2.Amount())
+	c.Assert(orderCreate2.Instrument(), check.Equals, orderCreate1.Instrument())
+	c.Assert(orderCreate2.Side(), check.Equals, orderCreate1.Side())
+	c.Assert(orderCreate2.Units(), check.Equals, orderCreate1.Units())
+	c.Assert(orderCreate2.Price(), check.Equals, orderCreate1.Price())
+	c.Assert(orderCreate2.Expiry().Equal(orderCreate1.Expiry()), check.Equals, true)
+	c.Assert(orderCreate2.Reason(), check.Equals, orderCreate1.Reason())
 }
 
 func (ts *TestEventSuite) TestEventServer(c *check.C) {
-	es, err := ts.c.NewEventServer(ts.AccountId)
+	es, err := ts.c.NewEventServer(ts.c.AccountId())
 	c.Assert(err, check.IsNil)
 
 	wg := sync.WaitGroup{}

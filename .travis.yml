@@ -1,8 +1,9 @@
 language: go
 script:
-    - go test -v ./...
+- go test -v ./...
 install:
-  - go get gopkg.in/check.v1
+- go get gopkg.in/check.v1
 env:
   global:
-    - secure: RsNugq1R2VlLqa8hZzcccagr+4D6fMeoxt2T7YK4nzSiFA3zkw0IwCDO9oMSuDHcVrmuPVUJIi8QUsGNOzp0uffuSNtc8RLIXRZuGbeb0v8joSSdYyDXB2O6RrW6gipmq8JGgBm4KOp+QFLw1VH4ilPfZ/gHsyMA171TVjicyAc=
+  - secure: RsNugq1R2VlLqa8hZzcccagr+4D6fMeoxt2T7YK4nzSiFA3zkw0IwCDO9oMSuDHcVrmuPVUJIi8QUsGNOzp0uffuSNtc8RLIXRZuGbeb0v8joSSdYyDXB2O6RrW6gipmq8JGgBm4KOp+QFLw1VH4ilPfZ/gHsyMA171TVjicyAc=
+  - secure: fez1vY/E4LqBuv9nTh9yCV7qpZzEWR4bs8k9PHDtYN5meDs3fEyYjhnm9i0EWEamF1xMPdgrXW5MaX9xpmsm5PrwWJysjtt23khcvXi2fwlj/shoZSzVGXbZvD/LHU7gdhrf7TvyUUA0Xi+ae5T9oTOtmiZJXSN2RWtPce9mN1A=

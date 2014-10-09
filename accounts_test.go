@@ -31,23 +31,29 @@ type TestAccountSuite struct {
 var _ = check.Suite(&TestAccountSuite{})
 
 func (ts *TestAccountSuite) SetUpSuite(c *check.C) {
-	client, err := oanda.NewSandboxClient()
-	c.Assert(err, check.IsNil)
-	ts.c = client
+	ts.c = NewTestClient(c, false)
 }
 
 func (ts *TestAccountSuite) TestAccountApi(c *check.C) {
 	accs, err := ts.c.Accounts()
 	c.Assert(err, check.IsNil)
 	c.Logf("Accounts (%d): %v", len(accs), accs)
-	c.Assert(accs, check.HasLen, 1)
-	c.Assert(accs[0].Name, check.Equals, "Primary")
-	c.Assert(accs[0].Currency, check.Equals, "USD")
+	c.Assert(len(accs) > 0, check.Equals, true)
 
-	acc, err := ts.c.Account(accs[0].AccountId)
+	var idx int
+	for i, acc := range accs {
+		if acc.Name == "Primary" {
+			idx = i
+			break
+		}
+	}
+
+	c.Assert(idx >= 0 && idx < len(accs), check.Equals, true)
+
+	acc, err := ts.c.Account(accs[idx].AccountId)
 	c.Assert(err, check.IsNil)
 	c.Log("Account:", acc)
 	c.Assert(acc.AccountId, check.Not(check.Equals), 0)
-	c.Assert(acc.Name, check.Equals, "Primary")
-	c.Assert(acc.Currency, check.Equals, "USD")
+	c.Assert(acc.Name, check.Equals, accs[idx].Name)
+	c.Assert(acc.Currency, check.Equals, accs[idx].Currency)
 }

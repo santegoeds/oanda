@@ -106,6 +106,8 @@ type Client struct {
 	*http.Client
 }
 
+func (c *Client) AccountId() int { return c.accountId }
+
 // NewFxPracticeClient returns a client instance that connects to Oanda's fxpractice environment. String
 // token should be set to the generated personal access token.
 //

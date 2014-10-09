@@ -15,7 +15,6 @@
 package oanda_test
 
 import (
-	"sync"
 	"time"
 
 	"github.com/santegoeds/oanda"
@@ -23,25 +22,17 @@ import (
 	"gopkg.in/check.v1"
 )
 
-type Counter struct {
-	m sync.RWMutex
-	n int
+type TestPricesSuite struct {
+	c *oanda.Client
 }
 
-func (c *Counter) Inc() int {
-	c.m.Lock()
-	defer c.m.Unlock()
-	c.n++
-	return c.n
+var _ = check.Suite(&TestPricesSuite{})
+
+func (ts *TestPricesSuite) SetUpSuite(c *check.C) {
+	ts.c = NewTestClient(c, true)
 }
 
-func (c *Counter) Val() int {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	return c.n
-}
-
-func (ts *TestSuite) TestPollPrices(c *check.C) {
+func (ts *TestPricesSuite) TestPollPrices(c *check.C) {
 	prices, err := ts.c.PollPrices("EUR_USD", "EUR_GBP")
 	c.Assert(err, check.IsNil)
 	c.Log(prices)
@@ -52,13 +43,13 @@ func (ts *TestSuite) TestPollPrices(c *check.C) {
 	}
 }
 
-func (ts *TestSuite) TestPollPricesSince(c *check.C) {
+func (ts *TestPricesSuite) TestPollPricesSince(c *check.C) {
 	prices, err := ts.c.PollPricesSince(time.Now().Add(-time.Hour), "eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Assert(prices, check.HasLen, 1)
 }
 
-func (ts *TestSuite) TestPricePoller(c *check.C) {
+func (ts *TestPricesSuite) TestPricePoller(c *check.C) {
 	pp, err := ts.c.NewPricePoller(time.Time{}, "eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
@@ -73,7 +64,7 @@ func (ts *TestSuite) TestPricePoller(c *check.C) {
 	c.Assert(prices, check.HasLen, 2)
 }
 
-func (ts *TestSuite) TestPriceServer(c *check.C) {
+func (ts *TestPricesSuite) TestPriceServer(c *check.C) {
 	ps, err := ts.c.NewPriceServer("eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
@@ -96,7 +87,7 @@ func (ts *TestSuite) TestPriceServer(c *check.C) {
 	c.Assert(count.Val() > 3, check.Equals, true)
 }
 
-func (ts *TestSuite) TestPriceServerInvalidInstrument(c *check.C) {
+func (ts *TestPricesSuite) TestPriceServerInvalidInstrument(c *check.C) {
 	ps, err := ts.c.NewPriceServer("gbp_eur")
 	c.Assert(err, check.IsNil)
 	err = ps.ConnectAndHandle(func(in string, tick oanda.PriceTick) {
@@ -106,7 +97,7 @@ func (ts *TestSuite) TestPriceServerInvalidInstrument(c *check.C) {
 	c.Log(err)
 }
 
-func (ts *TestSuite) TestPriceServerHeartbeat(c *check.C) {
+func (ts *TestPricesSuite) TestPriceServerHeartbeat(c *check.C) {
 	ps, err := ts.c.NewPriceServer("gbp_aud")
 	c.Assert(err, check.IsNil)
 

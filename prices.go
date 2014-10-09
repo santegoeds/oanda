@@ -154,7 +154,6 @@ func (c *Client) NewPriceServer(instr string, instrs ...string) (*PriceServer, e
 	q := u.Query()
 	q.Set("instruments", strings.Join(instrs, ","))
 	q.Set("accountId", strconv.Itoa(c.accountId))
-
 	u.RawQuery = q.Encode()
 
 	ps := PriceServer{

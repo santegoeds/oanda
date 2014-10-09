@@ -22,7 +22,22 @@ import (
 	"gopkg.in/check.v1"
 )
 
-func (ts *TestSuite) TestTradeApi(c *check.C) {
+type TestTradeSuite struct {
+	c *oanda.Client
+}
+
+var _ = check.Suite(&TestTradeSuite{})
+
+func (ts *TestTradeSuite) SetUpSuite(c *check.C) {
+	ts.c = NewTestClient(c, true)
+}
+
+func (ts *TestTradeSuite) TearDownSuite(c *check.C) {
+	CancelAllOrders(c, ts.c)
+	CloseAllPositions(c, ts.c)
+}
+
+func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	t, err := ts.c.NewTrade(oanda.Buy, 2, "eur_usd", oanda.StopLoss(0.5), oanda.TakeProfit(3.0))
 	c.Assert(err, check.IsNil)
 	c.Log(t)
