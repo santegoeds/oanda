@@ -15,6 +15,8 @@
 package oanda_test
 
 import (
+	"strings"
+
 	"gopkg.in/check.v1"
 
 	"github.com/santegoeds/oanda"
@@ -35,4 +37,24 @@ func (ts *TestRatesSuite) TestRatesInstruments(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Log(instruments)
 	c.Assert(instruments, check.Not(check.HasLen), 0)
+}
+
+func (ts *TestRatesSuite) TestRatesMidpointCandles(c *check.C) {
+	instrument, granularity := "eur_usd", oanda.D
+	candles, err := ts.c.PollMidpointCandles(instrument, granularity)
+	c.Assert(err, check.IsNil)
+	c.Log(candles)
+	c.Assert(candles.Instrument, check.Equals, strings.ToUpper(instrument))
+	c.Assert(candles.Granularity, check.Equals, granularity)
+	c.Assert(len(candles.Candles) > 0, check.Equals, true)
+}
+
+func (ts *TestRatesSuite) TestRatesBidAskCandles(c *check.C) {
+	instrument, granularity := "eur_usd", oanda.D
+	candles, err := ts.c.PollBidAskCandles(instrument, granularity)
+	c.Assert(err, check.IsNil)
+	c.Log(candles)
+	c.Assert(candles.Instrument, check.Equals, strings.ToUpper(instrument))
+	c.Assert(candles.Granularity, check.Equals, granularity)
+	c.Assert(len(candles.Candles) > 0, check.Equals, true)
 }

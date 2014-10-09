@@ -284,7 +284,7 @@ func (c *Client) newCandlesURL(instrument string, granularity Granularity, candl
 	q := u.Query()
 	q.Set("candleFormat", candleFormat)
 	q.Set("granularity", string(granularity))
-	q.Set("instrument", instrument)
+	q.Set("instrument", strings.ToUpper(instrument))
 	for _, arg := range args {
 		arg.applyCandlesArg(q)
 	}
