@@ -25,13 +25,23 @@ func (ts *TestLabsSuite) TestLabsCalendar(c *check.C) {
 	c.Assert(len(events) > 0, check.Equals, true)
 }
 
-func (ts *TestLabsSuite) TestLabsHistoricPositionRatios(c *check.C) {
+func (ts *TestLabsSuite) TestLabsPositionRatios(c *check.C) {
 	instrument := "eur_usd"
-	ratios, err := ts.c.HistoricPositionRatios("eur_usd", oanda.Year)
+	ratios, err := ts.c.PositionRatios(instrument, oanda.Year)
 	c.Assert(err, check.IsNil)
 	c.Log(ratios)
 	instrument = strings.ToUpper(instrument)
 	c.Assert(ratios.Instrument, check.Equals, instrument)
 	c.Assert(ratios.DisplayName, check.Equals, strings.Replace(instrument, "_", "/", -1))
 	c.Assert(len(ratios.Ratios) > 0, check.Equals, true)
+}
+
+func (ts *TestLabsSuite) TestLabsSpreads(c *check.C) {
+	instrument := "eur_usd"
+	spreads, err := ts.c.Spreads(instrument, oanda.Day, true)
+	c.Assert(err, check.IsNil)
+	c.Log(spreads)
+	c.Assert(len(spreads.Max) > 0, check.Equals, true)
+	c.Assert(len(spreads.Avg) > 0, check.Equals, true)
+	c.Assert(len(spreads.Min) > 0, check.Equals, true)
 }
