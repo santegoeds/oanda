@@ -2,6 +2,7 @@ package oanda
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -223,4 +224,76 @@ func (c *Client) Spreads(instrument string, period Period, unique bool) (*Spread
 		return nil, err
 	}
 	return &s, nil
+}
+
+type CommitmentsOfTraders struct {
+	data struct {
+		OverallInterest    int
+		NonCommercialLong  int
+		Price              float64
+		Date               time.Time
+		NonCommercialShort int
+		Unit               string
+	}
+}
+
+func (c *CommitmentsOfTraders) OverallInterest() int    { return c.data.OverallInterest }
+func (c *CommitmentsOfTraders) NonCommercialLong() int  { return c.data.NonCommercialLong }
+func (c *CommitmentsOfTraders) Price() float64          { return c.data.Price }
+func (c *CommitmentsOfTraders) Date() time.Time         { return c.data.Date }
+func (c *CommitmentsOfTraders) NonCommercialShort() int { return c.data.NonCommercialShort }
+func (c *CommitmentsOfTraders) Unit() string            { return c.data.Unit }
+
+func (c *CommitmentsOfTraders) UnmarshalJSON(data []byte) error {
+	v := struct {
+		OverallInterest    *int     `json:"oi,string"`
+		NonCommercialLong  *int     `json:"ncl,string"`
+		Price              *float64 `json:"price,string"`
+		Date               int
+		NonCommercialShort *int    `json:"ncs,string"`
+		Unit               *string `json:"unit"`
+	}{
+		OverallInterest:    &c.data.OverallInterest,
+		NonCommercialLong:  &c.data.NonCommercialLong,
+		Price:              &c.data.Price,
+		NonCommercialShort: &c.data.NonCommercialShort,
+		Unit:               &c.data.Unit,
+	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	c.data.Date = time.Unix(int64(v.Date), 0)
+	return nil
+}
+
+// CommitmentsOfTraders returns up to 4 years of commitments of traders.
+//
+// The commitments of traders report is released by the CFTC and provides a breakdown of each
+// Tuesday's open interest.
+func (c *Client) CommitmentsOfTraders(instrument string) ([]CommitmentsOfTraders, error) {
+	instrument = strings.ToUpper(instrument)
+	req, err := c.NewRequest("GET", "/labs/v1/commitments_of_traders", nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("instrument", instrument)
+	req.URL.RawQuery = q.Encode()
+
+	rsp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer rsp.Body.Close()
+
+	m := make(map[string][]CommitmentsOfTraders)
+	dec := json.NewDecoder(rsp.Body)
+	if err = dec.Decode(&m); err != nil {
+		return nil, err
+	}
+	cot, ok := m[instrument]
+	if !ok {
+		return nil, fmt.Errorf("No CommitmentsOfTraders found for instrument %s", instrument)
+	}
+	return cot, nil
 }

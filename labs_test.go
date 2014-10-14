@@ -45,3 +45,11 @@ func (ts *TestLabsSuite) TestLabsSpreads(c *check.C) {
 	c.Assert(len(spreads.Avg) > 0, check.Equals, true)
 	c.Assert(len(spreads.Min) > 0, check.Equals, true)
 }
+
+func (ts *TestLabsSuite) TestLabsCommitmentsOfTraders(c *check.C) {
+	instrument := "eur_usd"
+	cot, err := ts.c.CommitmentsOfTraders(instrument)
+	c.Assert(err, check.IsNil)
+	c.Log(cot)
+	c.Assert(len(cot) > 0, check.Equals, true)
+}
