@@ -31,7 +31,7 @@ type Position struct {
 }
 
 // String implements the fmt.Stringer interface.
-func (p *Position) String() string {
+func (p Position) String() string {
 	return fmt.Sprintf("Position{Side: %s, Instrument: %s, Units: %d, AvgPrice: %f}", p.Side,
 		p.Instrument, p.Units, p.AvgPrice)
 }

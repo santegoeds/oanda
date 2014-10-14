@@ -54,7 +54,7 @@ type Order struct {
 }
 
 // String implements the fmt.Stringer interface.
-func (o *Order) String() string {
+func (o Order) String() string {
 	return fmt.Sprintf("Order{OrderId: %d, Side: %s, Units: %d, Instrument: %s}", o.OrderId, o.Side,
 		o.Units, o.Instrument)
 }

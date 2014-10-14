@@ -37,7 +37,7 @@ type InstrumentInfo struct {
 	} `json:"interestRate"`
 }
 
-func (ii *InstrumentInfo) String() string {
+func (ii InstrumentInfo) String() string {
 	return fmt.Sprintf("InstrumentInfo{DisplayName: %s, Pip: %f, MarginRate: %f}", ii.DisplayName,
 		ii.Pip, ii.MarginRate)
 }
@@ -203,38 +203,66 @@ func (wa WeeklyAlignment) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetStringer("weeklyAlignment", time.Weekday(wa))
 }
 
+type midpointCandle struct {
+	Time     time.Time `json:"time"`
+	OpenMid  float64   `json:"openMid"`
+	HighMid  float64   `json:"highMid"`
+	LowMid   float64   `json:"lowMid"`
+	CloseMid float64   `json:"closeMid"`
+	Volume   int       `json:"volume"`
+	Complete bool      `json:"complete"`
+}
+
+func (c midpointCandle) String() string {
+	return fmt.Sprintf("MidpointCandle{Time: %s, OpenMid: %f, HighMid: %f, LowMid: %f, "+
+		"CloseMid: %f, Volume: %d, Complete: %v}", c.Time.Format(time.RFC3339),
+		c.OpenMid, c.HighMid, c.LowMid, c.CloseMid, c.Volume, c.Complete)
+}
+
 // MidpointCandles represents instrument history with a specific granularity.
 type MidpointCandles struct {
-	Instrument  string      `json:"instrument"`
-	Granularity Granularity `json:"granularity"`
-	Candles     []struct {
-		Time     time.Time `json:"time"`
-		OpenMid  float64   `json:"openMid"`
-		HighMid  float64   `json:"highMid"`
-		LowMid   float64   `json:"lowMid"`
-		CloseMid float64   `json:"closeMid"`
-		Volume   int       `json:"volume"`
-		Complete bool      `json:"complete"`
-	} `json:"candles"`
+	Instrument  string           `json:"instrument"`
+	Granularity Granularity      `json:"granularity"`
+	Candles     []midpointCandle `json:"candles"`
+}
+
+func (c MidpointCandles) String() string {
+	return fmt.Sprintf("MidpointCandles{Instrument: %s, Granularity: %v, Candles: %v}",
+		c.Instrument, c.Granularity, c.Candles)
+}
+
+type bidAskCandle struct {
+	Time     time.Time `json:"time"`
+	OpenBid  float64   `json:"openBid"`
+	OpenAsk  float64   `json:"openAsk"`
+	HighBid  float64   `json:"highBid"`
+	HighAsk  float64   `json:"highAsk"`
+	LowBid   float64   `json:"lowBid"`
+	LowAsk   float64   `json:"lowAsk"`
+	CloseBid float64   `json:"closeBid"`
+	CloseAsk float64   `json:"closeAsk"`
+	Volume   int       `json:"volume"`
+	Complete bool      `json:"complete"`
+}
+
+func (c bidAskCandle) String() string {
+	return fmt.Sprintf("BidAskCandle{Time: %s, OpenBid: %f, OpenAsk: %f, HighBid: %f, "+
+		"HighAsk: %f, LowBid: %f, LowAsk: %f, CloseBid: %f, CloseAsk: %f, "+
+		"Volume: %d, Complete: %v}", c.Time.Format(time.RFC3339), c.OpenBid,
+		c.OpenAsk, c.HighBid, c.HighAsk, c.LowBid, c.LowAsk, c.CloseBid, c.CloseAsk,
+		c.Volume, c.Complete)
 }
 
 // BidAskCandles represents Bid and Ask instrument history with a specific granularity.
 type BidAskCandles struct {
-	Instrument  string      `json:"instrument"`
-	Granularity Granularity `json:"granularity"`
-	Candles     []struct {
-		Time     time.Time `json:"time"`
-		OpenBid  float64   `json:"openBid"`
-		OpenAsk  float64   `json:"openAsk"`
-		HighBid  float64   `json:"highBid"`
-		HighAsk  float64   `json:"highAsk"`
-		LowBid   float64   `json:"lowBid"`
-		LowAsk   float64   `json:"lowAsk"`
-		CloseBid float64   `json:"closeBid"`
-		CloseAsk float64   `json:"closeAsk"`
-		Volume   int       `json:"volume"`
-		Complete bool      `json:"complete"`
-	} `json:"candles"`
+	Instrument  string         `json:"instrument"`
+	Granularity Granularity    `json:"granularity"`
+	Candles     []bidAskCandle `json:"candles"`
+}
+
+func (c BidAskCandles) String() string {
+	return fmt.Sprintf("BidAskCandles{Instrument: %s, Granularity: %v, Candles: %v}", c.Instrument,
+		c.Granularity, c.Candles)
 }
 
 // PollMidpointCandles returns historic midpoint prices for an instrument.

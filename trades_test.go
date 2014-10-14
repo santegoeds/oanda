@@ -15,8 +15,6 @@
 package oanda_test
 
 import (
-	"time"
-
 	"github.com/santegoeds/oanda"
 
 	"gopkg.in/check.v1"
@@ -49,7 +47,6 @@ func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	c.Assert(t.StopLoss, check.Equals, 0.5)
 	c.Assert(t.TakeProfit, check.Equals, 3.0)
 	c.Assert(t.TrailingStop, check.Equals, 0.0)
-	c.Assert(t.Time.Before(time.Now()), check.Equals, true)
 
 	dup, err := ts.c.Trade(t.TradeId)
 	c.Assert(err, check.IsNil)

@@ -92,7 +92,7 @@ func (t *evtHeader) UnmarshalJSON(data []byte) (err error) {
 }
 
 // String implementes the fmt.Stringer interface.
-func (t *evtHeader) String() string {
+func (t evtHeader) String() string {
 	return fmt.Sprintf("Event{TranId: %d, AccountId: %d Type: %s}",
 		t.TranId(), t.AccountId(), t.Type())
 }

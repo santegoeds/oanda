@@ -35,7 +35,7 @@ type Account struct {
 }
 
 // String implements the fmt.Stringer interface.
-func (a *Account) String() string {
+func (a Account) String() string {
 	return fmt.Sprintf("Account{AccountId: %d, Name: %s, Currency: %s}", a.AccountId, a.Name,
 		a.Currency)
 }

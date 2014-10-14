@@ -73,7 +73,7 @@ type StreamMessage struct {
 	RawMessage json.RawMessage
 }
 
-func (msg *StreamMessage) String() string {
+func (msg StreamMessage) String() string {
 	return fmt.Sprintf("StreamMessage{%s, %s}", msg.Type, string(msg.RawMessage))
 }
 
