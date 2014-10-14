@@ -53,3 +53,12 @@ func (ts *TestLabsSuite) TestLabsCommitmentsOfTraders(c *check.C) {
 	c.Log(cot)
 	c.Assert(len(cot) > 0, check.Equals, true)
 }
+
+func (ts *TestLabsSuite) TestLabsOrderBooks(c *check.C) {
+	instrument, period := "eur_usd", 6*oanda.Hour
+	obs, err := ts.c.OrderBooks(instrument, period)
+	c.Assert(err, check.IsNil)
+	c.Log(obs)
+	c.Assert(len(obs) > 1, check.Equals, true)
+	c.Assert(obs[0].Timestamp().After(obs[1].Timestamp()), check.Equals, true)
+}
