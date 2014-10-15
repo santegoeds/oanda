@@ -201,7 +201,7 @@ func (s *Spread) Timestamp() time.Time { return s.data.Timestamp }
 func (s *Spread) Spread() float64      { return s.data.Spread }
 
 func (s Spread) String() string {
-	return fmt.Sprintf("Spread{Timestamp: %s, Spread: %f}", s.data.Spread.Format(time.RFC3339),
+	return fmt.Sprintf("Spread{Timestamp: %s, Spread: %f}", s.data.Timestamp.Format(time.RFC3339),
 		s.data.Spread)
 }
 
