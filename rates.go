@@ -203,6 +203,89 @@ func (wa WeeklyAlignment) applyCandlesArg(v url.Values) {
 	optionalArgs(v).SetStringer("weeklyAlignment", time.Weekday(wa))
 }
 
+// MidpointCandles represents instrument history with a specific granularity.
+type MidpointCandles struct {
+	Instrument  string           `json:"instrument"`
+	Granularity Granularity      `json:"granularity"`
+	Candles     []midpointCandle `json:"candles"`
+}
+
+func (c MidpointCandles) String() string {
+	return fmt.Sprintf("MidpointCandles{Instrument: %s, Granularity: %v, Candles: %v}",
+		c.Instrument, c.Granularity, c.Candles)
+}
+
+// BidAskCandles represents Bid and Ask instrument history with a specific granularity.
+type BidAskCandles struct {
+	Instrument  string         `json:"instrument"`
+	Granularity Granularity    `json:"granularity"`
+	Candles     []bidAskCandle `json:"candles"`
+}
+
+func (c BidAskCandles) String() string {
+	return fmt.Sprintf("BidAskCandles{Instrument: %s, Granularity: %v, Candles: %v}", c.Instrument,
+		c.Granularity, c.Candles)
+}
+
+// PollMidpointCandles returns historical midpoint prices for an instrument.
+func (c *Client) PollMidpointCandles(instrument string, granularity Granularity,
+	args ...CandlesArg) (*MidpointCandles, error) {
+
+	u, err := c.newCandlesURL(instrument, granularity, "midpoint", args...)
+	if err != nil {
+		return nil, err
+	}
+	candles := struct {
+		ApiError
+		MidpointCandles
+	}{}
+	if err = getAndDecode(c, u.String(), &candles); err != nil {
+		return nil, err
+	}
+	return &candles.MidpointCandles, nil
+}
+
+// PollBidAskCandles returns historical bid- and ask prices for an instrument.
+func (c *Client) PollBidAskCandles(instrument string, granularity Granularity,
+	args ...CandlesArg) (*BidAskCandles, error) {
+
+	u, err := c.newCandlesURL(instrument, granularity, "bidask", args...)
+	if err != nil {
+		return nil, err
+	}
+	candles := struct {
+		ApiError
+		BidAskCandles
+	}{}
+	if err = getAndDecode(c, u.String(), &candles); err != nil {
+		return nil, err
+	}
+	return &candles.BidAskCandles, nil
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Private
+
+func (c *Client) newCandlesURL(instrument string, granularity Granularity, candleFormat string,
+	args ...CandlesArg) (*url.URL, error) {
+
+	u, err := url.Parse("/v1/candles")
+	if err != nil {
+		return nil, err
+	}
+
+	q := u.Query()
+	q.Set("candleFormat", candleFormat)
+	q.Set("granularity", string(granularity))
+	q.Set("instrument", strings.ToUpper(instrument))
+	for _, arg := range args {
+		arg.applyCandlesArg(q)
+	}
+	u.RawQuery = q.Encode()
+
+	return u, err
+}
+
 type midpointCandle struct {
 	Time     time.Time `json:"time"`
 	OpenMid  float64   `json:"openMid"`
@@ -217,18 +300,6 @@ func (c midpointCandle) String() string {
 	return fmt.Sprintf("MidpointCandle{Time: %s, OpenMid: %f, HighMid: %f, LowMid: %f, "+
 		"CloseMid: %f, Volume: %d, Complete: %v}", c.Time.Format(time.RFC3339),
 		c.OpenMid, c.HighMid, c.LowMid, c.CloseMid, c.Volume, c.Complete)
-}
-
-// MidpointCandles represents instrument history with a specific granularity.
-type MidpointCandles struct {
-	Instrument  string           `json:"instrument"`
-	Granularity Granularity      `json:"granularity"`
-	Candles     []midpointCandle `json:"candles"`
-}
-
-func (c MidpointCandles) String() string {
-	return fmt.Sprintf("MidpointCandles{Instrument: %s, Granularity: %v, Candles: %v}",
-		c.Instrument, c.Granularity, c.Candles)
 }
 
 type bidAskCandle struct {
@@ -251,72 +322,4 @@ func (c bidAskCandle) String() string {
 		"Volume: %d, Complete: %v}", c.Time.Format(time.RFC3339), c.OpenBid,
 		c.OpenAsk, c.HighBid, c.HighAsk, c.LowBid, c.LowAsk, c.CloseBid, c.CloseAsk,
 		c.Volume, c.Complete)
-}
-
-// BidAskCandles represents Bid and Ask instrument history with a specific granularity.
-type BidAskCandles struct {
-	Instrument  string         `json:"instrument"`
-	Granularity Granularity    `json:"granularity"`
-	Candles     []bidAskCandle `json:"candles"`
-}
-
-func (c BidAskCandles) String() string {
-	return fmt.Sprintf("BidAskCandles{Instrument: %s, Granularity: %v, Candles: %v}", c.Instrument,
-		c.Granularity, c.Candles)
-}
-
-// PollMidpointCandles returns historic midpoint prices for an instrument.
-func (c *Client) PollMidpointCandles(instrument string, granularity Granularity,
-	args ...CandlesArg) (*MidpointCandles, error) {
-
-	u, err := c.newCandlesURL(instrument, granularity, "midpoint", args...)
-	if err != nil {
-		return nil, err
-	}
-	candles := struct {
-		ApiError
-		MidpointCandles
-	}{}
-	if err = getAndDecode(c, u.String(), &candles); err != nil {
-		return nil, err
-	}
-	return &candles.MidpointCandles, nil
-}
-
-// PollBidAskCandles returns historic bid- and ask prices for an instrument.
-func (c *Client) PollBidAskCandles(instrument string, granularity Granularity,
-	args ...CandlesArg) (*BidAskCandles, error) {
-
-	u, err := c.newCandlesURL(instrument, granularity, "bidask", args...)
-	if err != nil {
-		return nil, err
-	}
-	candles := struct {
-		ApiError
-		BidAskCandles
-	}{}
-	if err = getAndDecode(c, u.String(), &candles); err != nil {
-		return nil, err
-	}
-	return &candles.BidAskCandles, nil
-}
-
-func (c *Client) newCandlesURL(instrument string, granularity Granularity, candleFormat string,
-	args ...CandlesArg) (*url.URL, error) {
-
-	u, err := url.Parse("/v1/candles")
-	if err != nil {
-		return nil, err
-	}
-
-	q := u.Query()
-	q.Set("candleFormat", candleFormat)
-	q.Set("granularity", string(granularity))
-	q.Set("instrument", strings.ToUpper(instrument))
-	for _, arg := range args {
-		arg.applyCandlesArg(q)
-	}
-	u.RawQuery = q.Encode()
-
-	return u, err
 }

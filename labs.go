@@ -33,6 +33,9 @@ const (
 	Year  Period = 31536000
 )
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Calendar
+
 type CalendarEvent struct {
 	data struct {
 		Title     string
@@ -109,6 +112,9 @@ func (c *Client) Calendar(instrument string, period Period) ([]CalendarEvent, er
 	return ces, nil
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// PositionRatios
+
 type PositionRatio struct {
 	data struct {
 		Timestamp    time.Time
@@ -181,6 +187,9 @@ func (c *Client) PositionRatios(instrument string, period Period) (*PositionRati
 	return &pr, nil
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Spreads
+
 type Spread struct {
 	data struct {
 		Timestamp time.Time
@@ -190,6 +199,11 @@ type Spread struct {
 
 func (s *Spread) Timestamp() time.Time { return s.data.Timestamp }
 func (s *Spread) Spread() float64      { return s.data.Spread }
+
+func (s Spread) String() string {
+	return fmt.Sprintf("Spread{Timestamp: %s, Spread: %f}", s.data.Spread.Format(time.RFC3339),
+		s.data.Spread)
+}
 
 func (s *Spread) UnmarshalJSON(data []byte) error {
 	v := []float64{}
@@ -205,6 +219,10 @@ type Spreads struct {
 	Max []Spread `json:"max"`
 	Avg []Spread `json:"avg"`
 	Min []Spread `json:"min"`
+}
+
+func (s Spreads) String() string {
+	return fmt.Sprintf("Spreads{Max: %v, Avg: %v, Min: %v}", s.Max, s.Avg, s.Min)
 }
 
 // Spreads returns historical spread data for a specific period in 15 min intervals.  If unique is
@@ -241,12 +259,15 @@ func (c *Client) Spreads(instrument string, period Period, unique bool) (*Spread
 	return &s, nil
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// CommitmentsOfTraders
+
 type CommitmentsOfTraders struct {
 	data struct {
+		Date               time.Time
+		Price              float64
 		OverallInterest    int
 		NonCommercialLong  int
-		Price              float64
-		Date               time.Time
 		NonCommercialShort int
 		Unit               string
 	}
@@ -258,6 +279,13 @@ func (c *CommitmentsOfTraders) Price() float64          { return c.data.Price }
 func (c *CommitmentsOfTraders) Date() time.Time         { return c.data.Date }
 func (c *CommitmentsOfTraders) NonCommercialShort() int { return c.data.NonCommercialShort }
 func (c *CommitmentsOfTraders) Unit() string            { return c.data.Unit }
+
+func (c CommitmentsOfTraders) String() string {
+	return fmt.Sprintf("CommitmentsOfTraders{Date: %s, Price: %f, OverallInterest: %d, "+
+		"NonCommercialLong: %d, NonCommercialShort: %d, Unit: %s}", c.data.Date.Format(time.RFC3339),
+		c.data.Price, c.data.OverallInterest, c.data.NonCommercialLong, c.data.NonCommercialShort,
+		c.data.Unit)
+}
 
 func (c *CommitmentsOfTraders) UnmarshalJSON(data []byte) error {
 	v := struct {
@@ -313,6 +341,10 @@ func (c *Client) CommitmentsOfTraders(instrument string) ([]CommitmentsOfTraders
 	return cot, nil
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// OrderBooks
+
+// Pricepoint defines the number of orders and positions at a certain price.
 type PricePoint struct {
 	data struct {
 		Price          float64
@@ -339,6 +371,7 @@ func (pp *PricePoint) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &pp.data)
 }
 
+// OrderBook represents the order book at a specific time.
 type OrderBook struct {
 	data struct {
 		Timestamp   time.Time
