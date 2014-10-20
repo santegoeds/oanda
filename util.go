@@ -15,6 +15,7 @@
 package oanda
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -57,4 +58,17 @@ func (oa optionalArgs) SetStringer(k string, v fmt.Stringer) {
 
 func (oa optionalArgs) SetBool(k string, b bool) {
 	url.Values(oa).Set(k, strconv.FormatBool(b))
+}
+
+type posixTime struct {
+	time.Time
+}
+
+func (t *posixTime) UnmarshalJSON(data []byte) error {
+	var secs int
+	if err := json.Unmarshal(data, &secs); err != nil {
+		return err
+	}
+	t.Time = time.Unix(int64(secs), 0)
+	return nil
 }
