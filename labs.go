@@ -731,6 +731,10 @@ type AutochartistPattern struct {
 	data autochartistPattern
 }
 
+func (p *AutochartistPattern) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &p.data)
+}
+
 func (p AutochartistPattern) String() string {
 	return fmt.Sprintf("AutochartistPattern{Provider: %v, Signals: %v}", p.data.Provider,
 		p.data.Signals)
@@ -753,13 +757,7 @@ func (c *Client) AutochartistPattern(arg ...AutochartistPatternArg) (*Autocharti
 	u.RawQuery = q.Encode()
 
 	pattern := AutochartistPattern{}
-	v := struct {
-		ApiError
-		*autochartistPattern
-	}{
-		autochartistPattern: &pattern.data,
-	}
-	if err := getAndDecode(c, u.String(), &v); err != nil {
+	if err := getAndDecode(c, u.String(), &pattern); err != nil {
 		return nil, err
 	}
 	return &pattern, nil

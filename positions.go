@@ -49,7 +49,6 @@ type Positions []Position
 func (c *Client) Positions() (Positions, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/positions", c.accountId)
 	positions := struct {
-		ApiError
 		Positions Positions `json:"positions"`
 	}{}
 	if err := getAndDecode(c, urlStr, &positions); err != nil {
@@ -62,26 +61,20 @@ func (c *Client) Positions() (Positions, error) {
 func (c *Client) Position(instrument string) (*Position, error) {
 	instrument = strings.ToUpper(instrument)
 	urlStr := fmt.Sprintf("/v1/accounts/%d/positions/%s", c.accountId, instrument)
-	p := struct {
-		ApiError
-		Position
-	}{}
+	p := Position{}
 	if err := getAndDecode(c, urlStr, &p); err != nil {
 		return nil, err
 	}
-	return &p.Position, nil
+	return &p, nil
 }
 
 // ClosePosition closes an existing position.
 func (c *Client) ClosePosition(instrument string) (*PositionCloseResponse, error) {
 	instrument = strings.ToUpper(instrument)
-	pcr := struct {
-		ApiError
-		PositionCloseResponse
-	}{}
+	pcr := PositionCloseResponse{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/positions/%s", c.accountId, instrument)
 	if err := requestAndDecode(c, "DELETE", urlStr, nil, &pcr); err != nil {
 		return nil, err
 	}
-	return &pcr.PositionCloseResponse, nil
+	return &pcr, nil
 }

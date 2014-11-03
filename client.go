@@ -213,7 +213,6 @@ func newClient(reqMod ...requestModifier) *Client {
 // requestModifier for authentication to the client.
 func initSandboxAccount(c *Client) (string, error) {
 	v := struct {
-		ApiError
 		Username  string `json:"username"`
 		Password  string `json:"password"`
 		AccountId int    `json:"accountId"`
@@ -240,18 +239,11 @@ func (ae *ApiError) Error() string {
 		ae.Code, ae.Message, ae.MoreInfo)
 }
 
-func (ae *ApiError) checkReturnCode() error {
-	if ae.Code != 0 {
-		return ae
-	}
-	return nil
+func getAndDecode(c *Client, urlStr string, v interface{}) error {
+	return requestAndDecode(c, "GET", urlStr, nil, v)
 }
 
-func getAndDecode(c *Client, urlStr string, vp returnCodeChecker) error {
-	return requestAndDecode(c, "GET", urlStr, nil, vp)
-}
-
-func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp returnCodeChecker) error {
+func requestAndDecode(c *Client, method, urlStr string, data url.Values, v interface{}) error {
 	var rdr io.Reader
 	if len(data) > 0 {
 		rdr = strings.NewReader(data.Encode())
@@ -267,11 +259,14 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, vp retu
 	defer rsp.Body.Close()
 
 	dec := json.NewDecoder(rsp.Body)
-	if err = dec.Decode(vp); err != nil {
+	if rsp.StatusCode < 400 {
+		return dec.Decode(v)
+	}
+
+	// StatusCode indicates error
+	apiErr := ApiError{}
+	if err = dec.Decode(&apiErr); err != nil {
 		return err
 	}
-	if err = vp.checkReturnCode(); err != nil {
-		return err
-	}
-	return nil
+	return &apiErr
 }

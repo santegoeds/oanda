@@ -131,7 +131,6 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 	}
 
 	rspData := struct {
-		ApiError
 		Instrument   string    `json:"instrument"`
 		Time         time.Time `json:"time"`
 		Price        float64   `json:"price"`
@@ -156,15 +155,12 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 
 // Trade returns an open trade.
 func (c *Client) Trade(tradeId int) (*Trade, error) {
-	t := struct {
-		ApiError
-		Trade
-	}{}
+	t := Trade{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
 	if err := getAndDecode(c, urlStr, &t); err != nil {
 		return nil, err
 	}
-	return &t.Trade, nil
+	return &t, nil
 }
 
 // Trades returns a list of open trades that match the optional arguments.  Supported
@@ -185,7 +181,6 @@ func (c *Client) Trades(args ...TradesArg) (Trades, error) {
 	urlStr = u.String()
 
 	rspData := struct {
-		ApiError
 		Trades Trades `json:"trades"`
 	}{}
 	if err = getAndDecode(c, urlStr, &rspData); err != nil {
@@ -202,16 +197,13 @@ func (c *Client) ModifyTrade(tradeId int, arg ModifyTradeArg, args ...ModifyTrad
 	for _, arg := range args {
 		arg.applyModifyTradeArg(data)
 	}
-	t := struct {
-		ApiError
-		Trade
-	}{}
+	t := Trade{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
 	if err := requestAndDecode(c, "PATCH", urlStr, data, &t); err != nil {
 		return nil, err
 	}
 
-	return &t.Trade, nil
+	return &t, nil
 }
 
 type CloseTradeResponse struct {
@@ -225,13 +217,10 @@ type CloseTradeResponse struct {
 
 // CloseTrade closes an open trade.
 func (c *Client) CloseTrade(tradeId int) (*CloseTradeResponse, error) {
-	ctr := struct {
-		ApiError
-		CloseTradeResponse
-	}{}
+	ctr := CloseTradeResponse{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
 	if err := requestAndDecode(c, "DELETE", urlStr, nil, &ctr); err != nil {
 		return nil, err
 	}
-	return &ctr.CloseTradeResponse, nil
+	return &ctr, nil
 }

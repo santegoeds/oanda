@@ -84,7 +84,6 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (ma
 	u.RawQuery = q.Encode()
 
 	v := struct {
-		ApiError
 		Instruments []struct {
 			Instrument string `json:"instrument"`
 			InstrumentInfo
@@ -235,14 +234,11 @@ func (c *Client) PollMidpointCandles(instrument string, granularity Granularity,
 	if err != nil {
 		return nil, err
 	}
-	candles := struct {
-		ApiError
-		MidpointCandles
-	}{}
+	candles := MidpointCandles{}
 	if err = getAndDecode(c, u.String(), &candles); err != nil {
 		return nil, err
 	}
-	return &candles.MidpointCandles, nil
+	return &candles, nil
 }
 
 // PollBidAskCandles returns historical bid- and ask prices for an instrument.
@@ -253,14 +249,11 @@ func (c *Client) PollBidAskCandles(instrument string, granularity Granularity,
 	if err != nil {
 		return nil, err
 	}
-	candles := struct {
-		ApiError
-		BidAskCandles
-	}{}
+	candles := BidAskCandles{}
 	if err = getAndDecode(c, u.String(), &candles); err != nil {
 		return nil, err
 	}
-	return &candles.BidAskCandles, nil
+	return &candles, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

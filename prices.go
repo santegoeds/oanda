@@ -92,18 +92,22 @@ func (pp *PricePoller) Poll() (Prices, error) {
 		return pp.lastPrices, nil
 	}
 
+	dec := json.NewDecoder(rsp.Body)
+	if rsp.StatusCode >= 400 {
+		apiErr := ApiError{}
+		if err = dec.Decode(&apiErr); err != nil {
+			return nil, err
+		}
+		return nil, &apiErr
+	}
+
 	v := struct {
-		ApiError
 		Prices []struct {
 			Instrument string `json:"instrument"`
 			PriceTick
 		} `json:"prices"`
 	}{}
-	dec := json.NewDecoder(rsp.Body)
 	if err = dec.Decode(&v); err != nil {
-		return nil, err
-	}
-	if err = v.checkReturnCode(); err != nil {
 		return nil, err
 	}
 	prices := make(Prices)

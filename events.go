@@ -366,7 +366,6 @@ func (c *Client) PollEvents(args ...EventsArg) ([]Event, error) {
 	urlStr = u.String()
 
 	s := struct {
-		ApiError
 		Events []struct {
 			*evtHeaderContent
 			*evtBody
@@ -389,7 +388,6 @@ func (c *Client) PollEvents(args ...EventsArg) ([]Event, error) {
 // PollEvent returns data for a single event.
 func (c *Client) PollEvent(tranId int) (Event, error) {
 	evtData := struct {
-		ApiError
 		evtHeaderContent
 		evtBody
 	}{}

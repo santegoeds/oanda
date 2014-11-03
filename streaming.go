@@ -82,18 +82,6 @@ func (msg *StreamMessage) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &msgMap); err != nil {
 		return err
 	}
-	if code, ok := msgMap["code"]; ok {
-		apiError := ApiError{}
-		if err := json.Unmarshal(code, &apiError.Code); err != nil {
-			return err
-		}
-		if apiError.Code != 0 {
-			json.Unmarshal(msgMap["message"], &apiError.Message)
-			json.Unmarshal(msgMap["moreInfo"], &apiError.MoreInfo)
-			return &apiError
-		}
-	}
-
 	for msgType, rawMessage := range msgMap {
 		msg.Type = msgType
 		msg.RawMessage = rawMessage
@@ -191,23 +179,42 @@ func (s *messageServer) readMessages() error {
 	defer close(msgC)
 	go s.sh.HandleMessages(msgC)
 
+	newResponse := func() (*http.Response, error) {
+		rsp, err := s.c.Do(s.req)
+		if err != nil {
+			return nil, err
+		}
+		if rsp.StatusCode < 400 {
+			return rsp, nil
+		}
+		apiErr := ApiError{}
+		if err = json.NewDecoder(rsp.Body).Decode(&apiErr); err != nil {
+			return nil, err
+		}
+		return nil, &apiErr
+	}
+
 	newReader := func() (rdr io.ReadCloser, err error) {
-		d := time.Second
+		delay := time.Second
 		for {
 			s.mtx.Lock()
 			runFlg := s.runFlg
 			if runFlg {
-				rsp, err := s.c.Do(s.req)
-				if err == nil {
+				var rsp *http.Response
+				rsp, err = newResponse()
+				if err != nil {
+					_, ok := err.(*ApiError)
+					runFlg = !ok
+				} else {
 					rdr = NewTimedReader(rsp.Body, defaultStallTimeout)
 				}
 			}
 			s.mtx.Unlock()
-			if !runFlg || rdr != nil || d >= maxDelay {
+			if !runFlg || rdr != nil || delay >= maxDelay {
 				break
 			}
-			time.Sleep(d)
-			d *= 2
+			time.Sleep(delay)
+			delay *= 2
 		}
 		return
 	}

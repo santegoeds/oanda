@@ -132,7 +132,6 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 	}
 
 	rspData := struct {
-		ApiError
 		Instrument  string    `json:"instrument"`
 		Time        time.Time `json:"time"`
 		Price       float64   `json:"price"`
@@ -152,15 +151,12 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 
 // Order returns information about an existing order.
 func (c *Client) Order(orderId int) (*Order, error) {
-	o := struct {
-		ApiError
-		Order
-	}{}
+	o := Order{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
 	if err := getAndDecode(c, urlStr, &o); err != nil {
 		return nil, err
 	}
-	return &o.Order, nil
+	return &o, nil
 }
 
 // MaxId is an optional argument for Client methods Events(), Orders() and Trades().
@@ -206,7 +202,6 @@ func (c *Client) Orders(args ...OrdersArg) ([]Order, error) {
 	u.RawQuery = q.Encode()
 
 	rsp := struct {
-		ApiError
 		Orders []Order `json:"orders"`
 	}{}
 	if err := getAndDecode(c, u.String(), &rsp); err != nil {
@@ -271,15 +266,12 @@ func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrde
 	for _, arg = range args {
 		arg.applyModifyOrderArg(data)
 	}
-	o := struct {
-		ApiError
-		Order
-	}{}
+	o := Order{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
 	if err := requestAndDecode(c, "PATCH", urlStr, data, &o); err != nil {
 		return nil, err
 	}
-	return &o.Order, nil
+	return &o, nil
 }
 
 type CancelOrderResponse struct {
@@ -294,12 +286,9 @@ type CancelOrderResponse struct {
 // CancelOrder closes an open order.
 func (c *Client) CancelOrder(orderId int) (*CancelOrderResponse, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
-	cor := struct {
-		ApiError
-		CancelOrderResponse
-	}{}
+	cor := CancelOrderResponse{}
 	if err := requestAndDecode(c, "DELETE", urlStr, nil, &cor); err != nil {
 		return nil, err
 	}
-	return &cor.CancelOrderResponse, nil
+	return &cor, nil
 }

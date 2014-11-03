@@ -43,7 +43,6 @@ func (a Account) String() string {
 // Accounts returns a list with all the know accounts.
 func (c *Client) Accounts() ([]Account, error) {
 	v := struct {
-		ApiError
 		Accounts []Account `json:"accounts"`
 	}{}
 	if err := getAndDecode(c, "/v1/accounts", &v); err != nil {
@@ -55,13 +54,9 @@ func (c *Client) Accounts() ([]Account, error) {
 // Account queries the Oanda servers for account information for the specified accountId
 // and returns a new Account instance.
 func (c *Client) Account(accountId int) (*Account, error) {
-	acc := struct {
-		ApiError
-		Account
-	}{}
-	err := getAndDecode(c, fmt.Sprintf("/v1/accounts/%d", accountId), &acc)
-	if err != nil {
+	acc := Account{}
+	if err := getAndDecode(c, fmt.Sprintf("/v1/accounts/%d", accountId), &acc); err != nil {
 		return nil, err
 	}
-	return &acc.Account, nil
+	return &acc, nil
 }
