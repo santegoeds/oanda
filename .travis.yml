@@ -1,6 +1,6 @@
 language: go
 script:
-- go test -v ./...
+- go test ./... -check.v
 install:
 - go get gopkg.in/check.v1
 env:
