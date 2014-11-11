@@ -1,9 +1,10 @@
 package status_test
 
 import (
-	"github.com/santegoeds/oanda/status"
-	"gopkg.in/check.v1"
 	"testing"
+
+	"gopkg.in/check.v1"
+	"github.com/santegoeds/oanda/status"
 )
 
 type TestSuite struct{}

@@ -60,15 +60,17 @@ func (oa optionalArgs) SetBool(k string, b bool) {
 	url.Values(oa).Set(k, strconv.FormatBool(b))
 }
 
-type posixTime struct {
+// Time embeds time.Time and serves to Unmarshal from Integer values.
+type Time struct {
 	time.Time
 }
 
-func (t *posixTime) UnmarshalJSON(data []byte) error {
-	var secs int
+// Implements the json.UnmarshalJSON interface.
+func (t *Time) UnmarshalJSON(data []byte) error {
+	var secs int64
 	if err := json.Unmarshal(data, &secs); err != nil {
 		return err
 	}
-	t.Time = time.Unix(int64(secs), 0)
+	t.Time = time.Unix(secs, 0)
 	return nil
 }

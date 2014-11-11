@@ -17,7 +17,7 @@ package oanda_test
 import (
 	"github.com/santegoeds/oanda"
 
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 )
 
 type TestTradeSuite struct {
@@ -31,8 +31,10 @@ func (ts *TestTradeSuite) SetUpSuite(c *check.C) {
 }
 
 func (ts *TestTradeSuite) TearDownSuite(c *check.C) {
-	CancelAllOrders(c, ts.c)
-	CloseAllPositions(c, ts.c)
+	if ts.c != nil {
+		CancelAllOrders(c, ts.c)
+		CloseAllPositions(c, ts.c)
+	}
 }
 
 func (ts *TestTradeSuite) TestTradeApi(c *check.C) {

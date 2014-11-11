@@ -18,8 +18,7 @@ import (
 	"strings"
 
 	"github.com/santegoeds/oanda"
-
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 )
 
 type TestLabsSuite struct {
@@ -45,9 +44,9 @@ func (ts *TestLabsSuite) TestLabsPositionRatios(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Log(ratios)
 	instrument = strings.ToUpper(instrument)
-	c.Assert(ratios.Instrument(), check.Equals, instrument)
-	c.Assert(ratios.DisplayName(), check.Equals, strings.Replace(instrument, "_", "/", -1))
-	c.Assert(len(ratios.Ratios()) > 0, check.Equals, true)
+	c.Assert(ratios.Instrument, check.Equals, instrument)
+	c.Assert(ratios.DisplayName, check.Equals, strings.Replace(instrument, "_", "/", -1))
+	c.Assert(len(ratios.Ratios) > 0, check.Equals, true)
 }
 
 func (ts *TestLabsSuite) TestLabsSpreads(c *check.C) {
@@ -74,13 +73,13 @@ func (ts *TestLabsSuite) TestLabsOrderBooks(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Log(obs)
 	c.Assert(len(obs) > 1, check.Equals, true)
-	c.Assert(obs[0].Timestamp().After(obs[1].Timestamp()), check.Equals, true)
+	c.Assert(obs[0].Timestamp.After(obs[1].Timestamp), check.Equals, true)
 }
 
 func (ts *TestLabsSuite) TestLabsAutochartistPattern(c *check.C) {
 	p, err := ts.c.AutochartistPattern()
 	c.Assert(err, check.IsNil)
 	c.Log(p)
-	c.Assert(p.Provider(), check.Equals, "autochartist")
-	c.Assert(len(p.Signals()) > 0, check.Equals, true)
+	c.Assert(p.Provider, check.Equals, "autochartist")
+	c.Assert(len(p.Signals) > 0, check.Equals, true)
 }
