@@ -26,7 +26,7 @@ type InstrumentInfo struct {
 	DisplayName     string  `json:"displayName"`
 	Pip             float64 `json:"pip,string"`
 	MaxTradeUnits   int     `json:"maxTradeUnits"`
-	Precision       float64 `json:"precision"`
+	Precision       float64 `json:"precision,string"`
 	MaxTrailingStop float64 `json:"maxTrailingStop"`
 	MinTrailingStop float64 `json:"minTrailingStop"`
 	MarginRate      float64 `json:"marginRate"`

@@ -39,6 +39,36 @@ func (ts *TestRatesSuite) TestRatesInstruments(c *check.C) {
 	c.Assert(instruments, check.Not(check.HasLen), 0)
 }
 
+func (ts *TestRatesSuite) TestRatesInstrumentsWithFields(c *check.C) {
+	fields := []oanda.InstrumentField{
+		oanda.DisplayNameField,
+		oanda.PipField,
+		oanda.MaxTradeUnitsField,
+		oanda.PrecisionField,
+		oanda.MaxTrailingStopField,
+		oanda.MinTrailingStopField,
+		oanda.MarginRateField,
+		oanda.HaltedField,
+		oanda.InterestRateField,
+	}
+
+	instruments, err := ts.c.Instruments(nil, fields)
+	c.Assert(err, check.IsNil)
+	c.Log(instruments)
+	c.Assert(instruments, check.Not(check.HasLen), 0)
+	for _, info := range instruments {
+		c.Assert(len(info.DisplayName) > 0, check.Equals, true)
+		c.Assert(info.Pip > 0, check.Equals, true)
+		c.Assert(info.MaxTradeUnits > 0, check.Equals, true)
+		c.Assert(info.Precision > 0, check.Equals, true)
+		c.Assert(info.MaxTrailingStop > 0, check.Equals, true)
+		c.Assert(info.MinTrailingStop > 0, check.Equals, true)
+		c.Assert(info.MarginRate > 0, check.Equals, true)
+		c.Assert(info.Halted, check.Equals, false)
+		c.Assert(len(info.InterestRate) > 0, check.Equals, true)
+	}
+}
+
 func (ts *TestRatesSuite) TestRatesMidpointCandles(c *check.C) {
 	instrument, granularity := "eur_usd", oanda.D
 	candles, err := ts.c.PollMidpointCandles(instrument, granularity)
