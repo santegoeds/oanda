@@ -15,9 +15,10 @@
 package oanda_test
 
 import (
-	"github.com/santegoeds/oanda"
 	"sync"
 	"time"
+
+	"github.com/santegoeds/oanda"
 
 	"gopkg.in/check.v1"
 )

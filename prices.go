@@ -39,15 +39,15 @@ func (p *PriceTick) Spread() float64 {
 }
 
 // PollPrices returns the latest PriceTick for the specified instruments.
-func (c *Client) PollPrices(instrument string, instruments ...string) (Prices, error) {
-	return c.PollPricesSince(time.Time{}, instrument, instruments...)
+func (c *Client) PollPrices(instruments ...string) (Prices, error) {
+	return c.PollPricesSince(time.Time{}, instruments...)
 }
 
 // PollPricesSince returns the PriceTicks for instruments.  If since is not the zero time
 // instruments whose prices were not updated since the requested time.Time are excluded from the
 // result.
-func (c *Client) PollPricesSince(since time.Time, instr string, instrs ...string) (Prices, error) {
-	pp, err := c.NewPricePoller(since, instr, instrs...)
+func (c *Client) PollPricesSince(since time.Time, instrs ...string) (Prices, error) {
+	pp, err := c.NewPricePoller(since, instrs...)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,7 @@ type PricePoller struct {
 
 // NewPricePoller returns a poller to repeatedly poll Oanda for updates of the same set of
 // instruments.
-func (c *Client) NewPricePoller(since time.Time, instr string, instrs ...string) (*PricePoller, error) {
-	instrs = append(instrs, instr)
+func (c *Client) NewPricePoller(since time.Time, instrs ...string) (*PricePoller, error) {
 	req, err := c.NewRequest("GET", "/v1/prices", nil)
 	if err != nil {
 		return nil, err
@@ -142,8 +141,7 @@ type PriceServer struct {
 }
 
 // NewPriceServer returns a PriceServer instance for receiving and handling Ticks.
-func (c *Client) NewPriceServer(instr string, instrs ...string) (*PriceServer, error) {
-	instrs = append(instrs, instr)
+func (c *Client) NewPriceServer(instrs ...string) (*PriceServer, error) {
 	for i, instr := range instrs {
 		instrs[i] = strings.ToUpper(instr)
 	}

@@ -97,6 +97,30 @@ func (ts *TestPricesSuite) TestPriceServerInvalidInstrument(c *check.C) {
 	c.Log(err)
 }
 
+func (ts *TestPricesSuite) TestPriceServerMultipleInstrument(c *check.C) {
+	instruments := []string{"eur_usd", "gbp_usd"}
+	ps, err := ts.c.NewPriceServer(instruments...)
+	c.Assert(err, check.IsNil)
+
+	timeout := 5 * time.Minute
+	t := time.AfterFunc(timeout, func() {
+		c.Errorf("Failed to receive 3 ticks in %d minutes.", timeout/time.Minute)
+		ps.Stop()
+	})
+
+	count := Counter{}
+	err = ps.ConnectAndHandle(func(in string, tick oanda.PriceTick) {
+		c.Log(in, tick)
+		if count.Inc() > 3 {
+			ps.Stop()
+		}
+	})
+
+	t.Stop()
+	c.Assert(err, check.IsNil)
+	c.Assert(count.Val() > 3, check.Equals, true)
+}
+
 func (ts *TestPricesSuite) TestPriceServerHeartbeat(c *check.C) {
 	ps, err := ts.c.NewPriceServer("gbp_aud")
 	c.Assert(err, check.IsNil)
