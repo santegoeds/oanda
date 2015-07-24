@@ -21,6 +21,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"gopkg.in/check.v1"
 
@@ -51,6 +52,12 @@ func NewTestClient(c *check.C, selectAccount bool) *oanda.Client {
 	accountId, err := strconv.Atoi(accountIdStr)
 	c.Assert(err, check.IsNil)
 	client.SelectAccount(accountId)
+
+	CloseAllPositions(c, client)
+	time.Sleep(time.Second)
+
+	CancelAllOrders(c, client)
+	time.Sleep(time.Second)
 
 	return client
 }
