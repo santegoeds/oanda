@@ -16,6 +16,7 @@ package oanda
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,6 +48,10 @@ func (c *Client) PollPrices(instruments ...string) (Prices, error) {
 // instruments whose prices were not updated since the requested time.Time are excluded from the
 // result.
 func (c *Client) PollPricesSince(since time.Time, instrs ...string) (Prices, error) {
+	if len(instrs) < 1 {
+		return nil, errors.New("ArgumentError: At least one instrument is required.")
+	}
+
 	pp, err := c.NewPricePoller(since, instrs...)
 	if err != nil {
 		return nil, err
@@ -62,6 +67,10 @@ type PricePoller struct {
 // NewPricePoller returns a poller to repeatedly poll Oanda for updates of the same set of
 // instruments.
 func (c *Client) NewPricePoller(since time.Time, instrs ...string) (*PricePoller, error) {
+	if len(instrs) < 1 {
+		return nil, errors.New("ArgumentError: At least one instrument is required.")
+	}
+
 	req, err := c.NewRequest("GET", "/v1/prices", nil)
 	if err != nil {
 		return nil, err
@@ -142,6 +151,10 @@ type PriceServer struct {
 
 // NewPriceServer returns a PriceServer instance for receiving and handling Ticks.
 func (c *Client) NewPriceServer(instrs ...string) (*PriceServer, error) {
+	if len(instrs) < 1 {
+		return nil, errors.New("ArgumentError: At least one instrument is required.")
+	}
+
 	for i, instr := range instrs {
 		instrs[i] = strings.ToUpper(instr)
 	}
