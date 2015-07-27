@@ -35,6 +35,7 @@ func NewTestClient(c *check.C, selectAccount bool) *oanda.Client {
 		c.Skip(fmt.Sprintf("Environment variable %s is not defined", envName))
 		return nil
 	}
+	time.Sleep(2 * time.Second)
 	client, err := oanda.NewFxPracticeClient(token)
 	c.Assert(err, check.IsNil)
 
@@ -54,10 +55,7 @@ func NewTestClient(c *check.C, selectAccount bool) *oanda.Client {
 	client.SelectAccount(accountId)
 
 	CloseAllPositions(c, client)
-	time.Sleep(time.Second)
-
 	CancelAllOrders(c, client)
-	time.Sleep(time.Second)
 
 	return client
 }
