@@ -22,11 +22,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
 
-var debug = false
+var debug = "" //"trace"
 
 var (
 	defaultDateFormat  = DateFormat("RFC3339")
@@ -252,18 +253,29 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 	if err != nil {
 		return err
 	}
+
+	if debug == "trace" {
+		fmt.Fprintln(os.Stderr, req)
+		fmt.Fprintln(os.Stderr, data)
+	}
+
 	rsp, err := c.Do(req)
 	if err != nil {
 		return err
 	}
 	defer rsp.Body.Close()
 
-	dec := json.NewDecoder(rsp.Body)
+	var body io.Reader = rsp.Body
+	if debug == "trace" {
+		fmt.Println(os.Stderr, rsp)
+		body = io.TeeReader(body, os.Stderr)
+	}
+
+	dec := json.NewDecoder(body)
 	if rsp.StatusCode < 400 {
 		return dec.Decode(v)
 	}
 
-	// StatusCode indicates error
 	apiErr := ApiError{}
 	if err = dec.Decode(&apiErr); err != nil {
 		return err
