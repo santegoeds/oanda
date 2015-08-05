@@ -29,20 +29,25 @@ import (
 
 var debug = "" //"trace"
 
-var (
+const (
 	defaultDateFormat  = DateFormat("RFC3339")
 	defaultContentType = ContentType("application/x-www-form-urlencoded")
-	defaultTransport   = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
+)
 
-		// The number of open connections to the stream server are restricted. Disable support for
-		// idle connections.
-		MaxIdleConnsPerHost: -1,
+var (
+	DefaultHttpClient = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
+
+			// The number of open connections to the stream server are restricted. Disable support for
+			// idle connections.
+			MaxIdleConnsPerHost: -1,
+		},
 	}
 )
 
@@ -121,7 +126,7 @@ func NewFxPracticeClient(token string) (*Client, error) {
 	if token == "" {
 		return nil, errors.New("No FxPractice access token")
 	}
-	return newClient(Environment("fxpractice"), TokenAuthenticator(token)), nil
+	return NewClient("fxpractice", token, nil)
 }
 
 // NewFxTradeClient returns a client instance that connects to Oanda's fxtrade environment. String token
@@ -132,7 +137,7 @@ func NewFxTradeClient(token string) (*Client, error) {
 	if token == "" {
 		return nil, errors.New("No FxTrade access token")
 	}
-	return newClient(Environment("fxtrade"), TokenAuthenticator(token)), nil
+	return NewClient("fxtrade", token, nil)
 }
 
 // NewSandboxClient returns a client instance that connects to Oanda's fxsandbox environment. Creating a
@@ -140,13 +145,30 @@ func NewFxTradeClient(token string) (*Client, error) {
 //
 // See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewSandboxClient() (*Client, error) {
-	c := newClient(Environment("sandbox"))
-	if userName, err := initSandboxAccount(c); err != nil {
-		return nil, err
-	} else {
-		c.reqMods = append(c.reqMods, UsernameAuthenticator(userName))
+	return NewClient("sandbox", "", nil)
+}
+
+func NewClient(environment string, token string, httpClient *http.Client) (*Client, error) {
+	if httpClient == nil {
+		httpClient = DefaultHttpClient
 	}
-	return c, nil
+
+	switch environment {
+	case "fxpractice":
+		return newClient(httpClient, Environment("fxpractice"), TokenAuthenticator(token)), nil
+	case "fxtrade":
+		return newClient(httpClient, Environment("fxtrade"), TokenAuthenticator(token)), nil
+	case "sandbox":
+		c := newClient(httpClient, Environment("sandbox"))
+		if userName, err := initSandboxAccount(c); err != nil {
+			return nil, err
+		} else {
+			c.reqMods = append(c.reqMods, UsernameAuthenticator(userName))
+		}
+		return c, nil
+	}
+
+	return nil, fmt.Errorf("Invalid Oanda environment %v", environment)
 }
 
 // SelectAccount configures an Oanda account.  All trades and orders will be booked under the
@@ -200,15 +222,13 @@ func (pr *PollRequest) Poll() (*http.Response, error) {
 	return rsp, nil
 }
 
-func newClient(reqMod ...requestModifier) *Client {
+func newClient(httpClient *http.Client, reqMod ...requestModifier) *Client {
 	c := Client{
 		reqMods: []requestModifier{
 			defaultDateFormat,
 			defaultContentType,
 		},
-		Client: &http.Client{
-			Transport: defaultTransport,
-		},
+		Client: httpClient,
 	}
 	c.reqMods = append(c.reqMods, reqMod...)
 	return &c
