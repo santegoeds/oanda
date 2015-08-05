@@ -46,7 +46,7 @@ var (
 
 			// The number of open connections to the stream server are restricted. Disable support for
 			// idle connections.
-			MaxIdleConnsPerHost: -1,
+			MaxIdleConnsPerHost: 2,
 		},
 	}
 )
@@ -197,6 +197,17 @@ func (c *Client) CancelRequest(req *http.Request) {
 	tr, ok := c.Transport.(canceler)
 	if ok {
 		tr.CancelRequest(req)
+	}
+}
+
+// Closes all idle connections to the Oanda server.
+func (c *Client) CloseIdleConnections() {
+	type idleconnectionscloser interface {
+		CloseIdleConnections()
+	}
+	tr, ok := c.Transport.(idleconnectionscloser)
+	if ok {
+		tr.CloseIdleConnections()
 	}
 }
 
