@@ -64,7 +64,9 @@ func (ts *TestRatesSuite) TestRatesInstrumentsWithFields(c *check.C) {
 		c.Assert(info.MaxTrailingStop > 0, check.Equals, true)
 		c.Assert(info.MinTrailingStop > 0, check.Equals, true)
 		c.Assert(info.MarginRate > 0, check.Equals, true)
-		c.Assert(info.Halted, check.Equals, false)
+		// FIXME: Disable check as it regularly causes test failures when a market happens to
+		// be closed
+		//c.Assert(info.Halted, check.Equals, false)
 		c.Assert(len(info.InterestRate) > 0, check.Equals, true)
 	}
 }
