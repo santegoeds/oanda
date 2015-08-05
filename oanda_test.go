@@ -57,6 +57,8 @@ func NewTestClient(c *check.C, selectAccount bool) *oanda.Client {
 	CloseAllPositions(c, client)
 	CancelAllOrders(c, client)
 
+	client.CloseIdleConnections()
+
 	return client
 }
 
