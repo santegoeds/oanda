@@ -347,7 +347,7 @@ func (ids Ids) applyEventsArg(v url.Values) {
 	optionalArgs(v).SetIntArray("ids", []int(ids))
 }
 
-// PollEvents returns an array of events. Supported optional arguments are MaxId, MinId, Count,
+// PollEvents returns an array of events. Optional arguments are MaxId, MinId, Count,
 // Instrument and Ids.
 //
 // See http://developer.oanda.com/docs/v1/transactions/#get-transaction-history for further

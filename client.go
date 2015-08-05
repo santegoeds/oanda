@@ -49,17 +49,19 @@ var (
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // RequestModifiers
 
-// A requestModifier updates an http.Request before it is passed to an http.Client for execution.
+// A requestModifier updates an http.Request before it is passed onto an http.Client for execution.
 type requestModifier interface {
 	modify(*http.Request)
 }
 
+// A TokenAuthenticator adds a Bearer authentication to a request header.
 type TokenAuthenticator string
 
 func (a TokenAuthenticator) modify(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+string(a))
 }
 
+// A UsernameAuthenticator adds a username to a request header.
 type UsernameAuthenticator string
 
 func (a UsernameAuthenticator) modify(req *http.Request) {
@@ -84,12 +86,14 @@ func (e Environment) modify(req *http.Request) {
 	}
 }
 
+// A DateFormat add the desired DateTime format to a request header.
 type DateFormat string
 
 func (d DateFormat) modify(req *http.Request) {
 	req.Header.Set("X-Accept-Datetime-Format", string(d))
 }
 
+// A ContentType adds a Content-Type entry to the request header.
 type ContentType string
 
 func (c ContentType) modify(req *http.Request) {
@@ -145,8 +149,8 @@ func NewSandboxClient() (*Client, error) {
 	return c, nil
 }
 
-// SelectAccount configures the account for which subsequent trades and orders are.  Use AccountId 0 to
-// disable account selection.
+// SelectAccount configures an Oanda account.  All trades and orders will be booked under the
+// selected account.   Use AccountId 0 to disable account selection.
 func (c *Client) SelectAccount(accountId int) {
 	c.accountId = accountId
 }
@@ -163,7 +167,7 @@ func (c *Client) NewRequest(method, urlStr string, body io.Reader) (*http.Reques
 	return req, nil
 }
 
-// CancelRequest aborts an in-progress http request.
+// CancelRequest aborts an in-progress HTTP request.
 func (c *Client) CancelRequest(req *http.Request) {
 	type canceler interface {
 		CancelRequest(*http.Request)
@@ -177,7 +181,7 @@ func (c *Client) CancelRequest(req *http.Request) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PollRequest
 
-// PollRequest represents an http request that is executed repeatedly.
+// PollRequest represents an http request that can be executed repeatedly.
 type PollRequest struct {
 	c   *Client
 	req *http.Request
@@ -210,8 +214,7 @@ func newClient(reqMod ...requestModifier) *Client {
 	return &c
 }
 
-// initSandboxAccount creates a new test account in the sandbox environment and adds a
-// requestModifier for authentication to the client.
+// initSandboxAccount creates a new test account in the sandbox environment.
 func initSandboxAccount(c *Client) (string, error) {
 	v := struct {
 		Username  string `json:"username"`
