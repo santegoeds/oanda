@@ -22,24 +22,42 @@ import (
 	"time"
 )
 
+type InterestRate struct {
+	Bid float64 `json:"bid"`
+	Ask float64 `json:"ask"`
+}
+
+func (ir InterestRate) String() string {
+	return fmt.Sprintf("InterestRate{Bid: %v, Ask: %v}", ir.Bid, ir.Ask)
+}
+
 type InstrumentInfo struct {
-	DisplayName     string  `json:"displayName"`
-	Pip             float64 `json:"pip,string"`
-	MaxTradeUnits   int     `json:"maxTradeUnits"`
-	Precision       float64 `json:"precision,string"`
-	MaxTrailingStop float64 `json:"maxTrailingStop"`
-	MinTrailingStop float64 `json:"minTrailingStop"`
-	MarginRate      float64 `json:"marginRate"`
-	Halted          bool    `json:"halted"`
-	InterestRate    map[string]struct {
-		Bid float64 `json:"bid"`
-		Ask float64 `json:"ask"`
-	} `json:"interestRate"`
+	DisplayName     string                  `json:"displayName"`
+	Pip             float64                 `json:"pip,string"`
+	MaxTradeUnits   int                     `json:"maxTradeUnits"`
+	Precision       float64                 `json:"precision,string"`
+	MaxTrailingStop float64                 `json:"maxTrailingStop"`
+	MinTrailingStop float64                 `json:"minTrailingStop"`
+	MarginRate      float64                 `json:"marginRate"`
+	Halted          bool                    `json:"halted"`
+	InterestRate    map[string]InterestRate `json:"interestRate"`
 }
 
 func (ii InstrumentInfo) String() string {
-	return fmt.Sprintf("InstrumentInfo{DisplayName: %s, Pip: %f, MarginRate: %f}", ii.DisplayName,
-		ii.Pip, ii.MarginRate)
+	return fmt.Sprintf(
+		"InstrumentInfo{\n"+
+			"    DisplayName: %v,\n"+
+			"    Pip: %v,\n"+
+			"    MaxTradeUnits: %v\n"+
+			"    Precision: %v\n"+
+			"    MaxTrailingStop: %v\n"+
+			"    MinTrailingStop: %v\n"+
+			"    MarginRate: %v\n"+
+			"    Halted: %v\n"+
+			"    InterestRate: %v\n"+
+			"}",
+		ii.DisplayName, ii.Pip, ii.MaxTradeUnits, ii.Precision, ii.MaxTrailingStop,
+		ii.MinTrailingStop, ii.MarginRate, ii.Halted, ii.InterestRate)
 }
 
 type InstrumentField string
