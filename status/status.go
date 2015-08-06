@@ -22,6 +22,8 @@ package status
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -285,7 +287,10 @@ func getStatus(urlStr string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer closeResponse(rsp.Body)
+	defer func() {
+		io.Copy(ioutil.Discard, rsp.Body)
+		rsp.Body.Close()
+	}()
 	d := json.NewDecoder(rsp.Body)
 	if err := d.Decode(v); err != nil {
 		return err
