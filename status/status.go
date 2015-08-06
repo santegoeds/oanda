@@ -285,7 +285,7 @@ func getStatus(urlStr string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 	d := json.NewDecoder(rsp.Body)
 	if err := d.Decode(v); err != nil {
 		return err

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -44,8 +45,8 @@ var (
 			}).Dial,
 			TLSHandshakeTimeout: 10 * time.Second,
 
-			// The number of open connections to the stream server are restricted. Disable support for
-			// idle connections.
+			// Note! The number of concurrently open connections to the stream server are
+			// restricted as is the number of new connections per second.
 			MaxIdleConnsPerHost: 2,
 		},
 	}
@@ -278,6 +279,10 @@ func getAndDecode(c *Client, urlStr string, v interface{}) error {
 	return requestAndDecode(c, "GET", urlStr, nil, v)
 }
 
+func closeResponse(rc io.ReadCloser) {
+	io.Copy(ioutil.Discard, rc)
+}
+
 func requestAndDecode(c *Client, method, urlStr string, data url.Values, v interface{}) error {
 	var rdr io.Reader
 	if len(data) > 0 {
@@ -297,7 +302,7 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 	if err != nil {
 		return err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 
 	var body io.Reader = rsp.Body
 	if debug == "trace" {

@@ -95,7 +95,7 @@ func (pp *PricePoller) Poll() (Prices, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 	if rsp.ContentLength == 0 {
 		return pp.lastPrices, nil
 	}

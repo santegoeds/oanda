@@ -74,7 +74,7 @@ func (c *Client) Calendar(instrument string, period Period) ([]CalendarEvent, er
 	if err != nil {
 		return nil, err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 	dec := json.NewDecoder(rsp.Body)
 	ces := []CalendarEvent{}
 	if err := dec.Decode(&ces); err != nil {
@@ -146,7 +146,7 @@ func (c *Client) PositionRatios(instrument string, period Period) (*PositionRati
 	if err != nil {
 		return nil, err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 
 	pr := PositionRatios{}
 	dec := json.NewDecoder(rsp.Body)
@@ -213,7 +213,7 @@ func (c *Client) Spreads(instrument string, period Period, unique bool) (*Spread
 	if err != nil {
 		return nil, err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 
 	s := Spreads{}
 	dec := json.NewDecoder(rsp.Body)
@@ -260,7 +260,7 @@ func (c *Client) CommitmentsOfTraders(instrument string) ([]CommitmentsOfTraders
 	if err != nil {
 		return nil, err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 
 	m := make(map[string][]CommitmentsOfTraders)
 	dec := json.NewDecoder(rsp.Body)
@@ -364,7 +364,7 @@ func (c *Client) OrderBooks(instrument string, period Period) (OrderBooks, error
 	if err != nil {
 		return nil, err
 	}
-	defer rsp.Body.Close()
+	defer closeResponse(rsp.Body)
 
 	obs := make(OrderBooks, 0)
 	dec := json.NewDecoder(rsp.Body)
