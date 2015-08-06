@@ -29,6 +29,7 @@ var _ = check.Suite(&TestLabsSuite{})
 
 func (ts *TestLabsSuite) SetUpSuite(c *check.C) {
 	ts.c = NewTestClient(c, false)
+	ts.c.Debug = "trace"
 }
 
 func (ts *TestLabsSuite) TestLabsCalendar(c *check.C) {

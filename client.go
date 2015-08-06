@@ -28,8 +28,6 @@ import (
 	"time"
 )
 
-var debug = "" //"trace"
-
 const (
 	defaultDateFormat  = DateFormat("RFC3339")
 	defaultContentType = ContentType("application/x-www-form-urlencoded")
@@ -114,6 +112,7 @@ func (c ContentType) modify(req *http.Request) {
 type Client struct {
 	reqMods   []requestModifier
 	accountId int
+	Debug     string
 	*http.Client
 }
 
@@ -293,7 +292,7 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 		return err
 	}
 
-	if debug == "trace" {
+	if c.Debug == "trace" {
 		fmt.Fprintln(os.Stderr, req)
 		fmt.Fprintln(os.Stderr, data)
 	}
@@ -305,7 +304,7 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 	defer closeResponse(rsp.Body)
 
 	var body io.Reader = rsp.Body
-	if debug == "trace" {
+	if c.Debug == "trace" {
 		fmt.Println(os.Stderr, rsp)
 		body = io.TeeReader(body, os.Stderr)
 	}
