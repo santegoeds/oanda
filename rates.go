@@ -308,10 +308,9 @@ type midpointCandle struct {
 }
 
 func (c midpointCandle) String() string {
-	t := c.Time.Time()
-	return fmt.Sprintf("MidpointCandle{Time: %s, OpenMid: %f, HighMid: %f, LowMid: %f, "+
-		"CloseMid: %f, Volume: %d, Complete: %v}", t.Format(time.RFC3339), c.OpenMid, c.HighMid,
-		c.LowMid, c.CloseMid, c.Volume, c.Complete)
+	return fmt.Sprintf("MidpointCandle{Time: %v, OpenMid: %f, HighMid: %f, LowMid: %f, "+
+		"CloseMid: %f, Volume: %d, Complete: %v}", c.Time, c.OpenMid, c.HighMid, c.LowMid,
+		c.CloseMid, c.Volume, c.Complete)
 }
 
 type bidAskCandle struct {
@@ -329,9 +328,8 @@ type bidAskCandle struct {
 }
 
 func (c bidAskCandle) String() string {
-	t := c.Time.Time()
-	return fmt.Sprintf("BidAskCandle{Time: %s, OpenBid: %f, OpenAsk: %f, HighBid: %f, "+
+	return fmt.Sprintf("BidAskCandle{Time: %v, OpenBid: %f, OpenAsk: %f, HighBid: %f, "+
 		"HighAsk: %f, LowBid: %f, LowAsk: %f, CloseBid: %f, CloseAsk: %f, "+
-		"Volume: %d, Complete: %v}", t.Format(time.RFC3339), c.OpenBid, c.OpenAsk, c.HighBid,
+		"Volume: %d, Complete: %v}", c.Time, c.OpenBid, c.OpenAsk, c.HighBid,
 		c.HighAsk, c.LowBid, c.LowAsk, c.CloseBid, c.CloseAsk, c.Volume, c.Complete)
 }

@@ -78,7 +78,7 @@ func (c *Client) NewPricePoller(since time.Time, instrs ...string) (*PricePoller
 	q := req.URL.Query()
 	q.Set("instruments", strings.ToUpper(strings.Join(instrs, ",")))
 	if !since.IsZero() {
-		q.Set("since", since.UTC().Format(time.RFC3339))
+		q.Set("since", strconv.FormatInt(since.UTC().Unix(), 10))
 	}
 	req.URL.RawQuery = q.Encode()
 	pp := PricePoller{

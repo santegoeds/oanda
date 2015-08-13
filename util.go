@@ -67,6 +67,9 @@ func (t Time) Time() time.Time {
 }
 
 func (t Time) UnixMicro() int64 {
+	if !t.IsZero() {
+		return 0
+	}
 	if unix, err := strconv.ParseInt(string(t), 10, 64); err == nil {
 		return unix
 	}
@@ -75,4 +78,15 @@ func (t Time) UnixMicro() int64 {
 
 func (t Time) UnixNano() int64 {
 	return t.UnixMicro() * 1000
+}
+
+func (t Time) String() string {
+	if !t.IsZero() {
+		return t.Time().Format(time.RFC3339)
+	}
+	return string(t)
+}
+
+func (t Time) IsZero() bool {
+	return t == ""
 }

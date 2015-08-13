@@ -49,11 +49,9 @@ type CalendarEvent struct {
 }
 
 func (ce CalendarEvent) String() string {
-	t := ce.Timestamp.Time()
-	return fmt.Sprintf("CalendarEvent{Title: %s, Timestamp: %s, Unit: %s, Currency: %s, "+
+	return fmt.Sprintf("CalendarEvent{Title: %s, Timestamp: %v, Unit: %s, Currency: %s, "+
 		"Forecast: %v, Previous: %v, Actual: %v, Market: %v}", ce.Title,
-		t.Format(time.RFC3339), ce.Unit, ce.Currency, ce.Forecast,
-		ce.Previous, ce.Actual, ce.Market)
+		ce.Timestamp, ce.Unit, ce.Currency, ce.Forecast, ce.Previous, ce.Actual, ce.Market)
 }
 
 // Calendar returns and array of economic calendar events associated with an instrument. Events
@@ -166,9 +164,7 @@ type Spread struct {
 }
 
 func (s Spread) String() string {
-	t := s.Timestamp.Time()
-	return fmt.Sprintf("Spread{Timestamp: %s, Spread: %f}", t.Format(time.RFC3339),
-		s.Spread)
+	return fmt.Sprintf("Spread{Timestamp: %v, Spread: %f}", s.Timestamp, s.Spread)
 }
 
 func (s *Spread) UnmarshalJSON(data []byte) error {
@@ -238,10 +234,9 @@ type CommitmentsOfTraders struct {
 }
 
 func (c CommitmentsOfTraders) String() string {
-	t := c.Date.Time()
-	return fmt.Sprintf("CommitmentsOfTraders{Date: %s, Price: %f, OverallInterest: %d, "+
-		"NonCommercialLong: %d, NonCommercialShort: %d, Unit: %s}", t.Format(time.RFC3339),
-		c.Price, c.OverallInterest, c.NonCommercialLong, c.NonCommercialShort,
+	return fmt.Sprintf("CommitmentsOfTraders{Date: %v, Price: %f, OverallInterest: %d, "+
+		"NonCommercialLong: %d, NonCommercialShort: %d, Unit: %s}", c.Date, c.Price,
+		c.OverallInterest, c.NonCommercialLong, c.NonCommercialShort,
 		c.Unit)
 }
 
@@ -303,9 +298,8 @@ type OrderBook struct {
 }
 
 func (ob OrderBook) String() string {
-	t := ob.Timestamp.Time()
-	return fmt.Sprintf("OrderBook{Timestamp: %s, MarketPrice: %f, PricePoints %v}",
-		t.Format(time.RFC3339), ob.MarketPrice, ob.PricePoints)
+	return fmt.Sprintf("OrderBook{Timestamp: %v, MarketPrice: %f, PricePoints %v}",
+		ob.Timestamp, ob.MarketPrice, ob.PricePoints)
 }
 
 func (ob *OrderBook) UnmarshalJSON(data []byte) error {
@@ -508,9 +502,7 @@ type Point struct {
 }
 
 func (p Point) String() string {
-	x0, x1 := p.X0.Time(), p.X1.Time()
-	return fmt.Sprintf("Point{X0: %s, X1: %s, Y0: %v, Y1: %v}", x0.Format(time.RFC3339),
-		x1.Format(time.RFC3339), p.Y0, p.Y1)
+	return fmt.Sprintf("Point{X0: %v, X1: %v, Y0: %v, Y1: %v}", p.X0, p.X1, p.Y0, p.Y1)
 }
 
 type Prediction struct {
@@ -521,9 +513,8 @@ type Prediction struct {
 }
 
 func (p Prediction) String() string {
-	tt, tf := p.TimeTo.Time(), p.TimeFrom.Time()
-	return fmt.Sprintf("Prediction{TimeTo: %s, TimeFrom: %s, PriceHigh: %v, PriceLow: %v}",
-		tt.Format(time.RFC3339), tf.Format(time.RFC3339), p.PriceHigh, p.PriceLow)
+	return fmt.Sprintf("Prediction{TimeTo: %v, TimeFrom: %v, PriceHigh: %v, PriceLow: %v}",
+		p.TimeTo, p.TimeFrom, p.PriceHigh, p.PriceLow)
 }
 
 type AutochartistSignalData struct {
@@ -536,10 +527,8 @@ type AutochartistSignalData struct {
 }
 
 func (d AutochartistSignalData) String() string {
-	t := d.PatternEndTime.Time()
-	return fmt.Sprintf("Data{PatternEndTime: %s, Points{Resistance: %v, Support: %v}, "+
-		"Prediction: %v}", t.Format(time.RFC3339), d.Points.Resistance, d.Points.Support,
-		d.Prediction)
+	return fmt.Sprintf("Data{PatternEndTime: %v, Points{Resistance: %v, Support: %v}, "+
+		"Prediction: %v}", d.PatternEndTime, d.Points.Resistance, d.Points.Support, d.Prediction)
 }
 
 type AutochartistSignal struct {
