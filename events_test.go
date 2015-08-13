@@ -57,7 +57,9 @@ func (ts *TestEventSuite) TestEventApi(c *check.C) {
 	c.Assert(orderCreate1.Side(), check.Equals, "buy")
 	c.Assert(orderCreate1.Units(), check.Equals, 1)
 	c.Assert(orderCreate1.Price(), check.Equals, 0.75)
-	c.Assert(orderCreate1.Expiry().Equal(expiry.Truncate(time.Second)), check.Equals, true)
+
+	orderExpiry := orderCreate1.Expiry().Time()
+	c.Assert(orderExpiry.Equal(expiry.Truncate(time.Second)), check.Equals, true)
 	c.Assert(orderCreate1.Reason(), check.Equals, "CLIENT_REQUEST")
 
 	evt, err := ts.c.PollEvent(orderCreate1.TranId())
@@ -75,7 +77,7 @@ func (ts *TestEventSuite) TestEventApi(c *check.C) {
 	c.Assert(orderCreate2.Side(), check.Equals, orderCreate1.Side())
 	c.Assert(orderCreate2.Units(), check.Equals, orderCreate1.Units())
 	c.Assert(orderCreate2.Price(), check.Equals, orderCreate1.Price())
-	c.Assert(orderCreate2.Expiry().Equal(orderCreate1.Expiry()), check.Equals, true)
+	c.Assert(orderCreate2.Expiry(), check.Equals, orderCreate1.Expiry())
 	c.Assert(orderCreate2.Reason(), check.Equals, orderCreate1.Reason())
 }
 
@@ -109,7 +111,9 @@ func (ts *TestEventSuite) TestEventServer(c *check.C) {
 			c.Assert(orderCreate.Side(), check.Equals, "buy")
 			c.Assert(orderCreate.Units(), check.Equals, 1)
 			c.Assert(orderCreate.Price(), check.Equals, 0.75)
-			c.Assert(orderCreate.Expiry().Equal(expiry.Truncate(time.Second)), check.Equals, true)
+
+			orderExpiry := orderCreate.Expiry().Time()
+			c.Assert(orderExpiry.Equal(expiry.Truncate(time.Second)), check.Equals, true)
 			c.Assert(orderCreate.Reason(), check.Equals, "CLIENT_REQUEST")
 		})
 		c.Assert(err, check.IsNil)

@@ -298,39 +298,40 @@ func (c *Client) newCandlesURL(instrument string, granularity Granularity, candl
 }
 
 type midpointCandle struct {
-	Time     time.Time `json:"time"`
-	OpenMid  float64   `json:"openMid"`
-	HighMid  float64   `json:"highMid"`
-	LowMid   float64   `json:"lowMid"`
-	CloseMid float64   `json:"closeMid"`
-	Volume   int       `json:"volume"`
-	Complete bool      `json:"complete"`
+	Time     Time    `json:"time"`
+	OpenMid  float64 `json:"openMid"`
+	HighMid  float64 `json:"highMid"`
+	LowMid   float64 `json:"lowMid"`
+	CloseMid float64 `json:"closeMid"`
+	Volume   int     `json:"volume"`
+	Complete bool    `json:"complete"`
 }
 
 func (c midpointCandle) String() string {
+	t := c.Time.Time()
 	return fmt.Sprintf("MidpointCandle{Time: %s, OpenMid: %f, HighMid: %f, LowMid: %f, "+
-		"CloseMid: %f, Volume: %d, Complete: %v}", c.Time.Format(time.RFC3339),
-		c.OpenMid, c.HighMid, c.LowMid, c.CloseMid, c.Volume, c.Complete)
+		"CloseMid: %f, Volume: %d, Complete: %v}", t.Format(time.RFC3339), c.OpenMid, c.HighMid,
+		c.LowMid, c.CloseMid, c.Volume, c.Complete)
 }
 
 type bidAskCandle struct {
-	Time     time.Time `json:"time"`
-	OpenBid  float64   `json:"openBid"`
-	OpenAsk  float64   `json:"openAsk"`
-	HighBid  float64   `json:"highBid"`
-	HighAsk  float64   `json:"highAsk"`
-	LowBid   float64   `json:"lowBid"`
-	LowAsk   float64   `json:"lowAsk"`
-	CloseBid float64   `json:"closeBid"`
-	CloseAsk float64   `json:"closeAsk"`
-	Volume   int       `json:"volume"`
-	Complete bool      `json:"complete"`
+	Time     Time    `json:"time"`
+	OpenBid  float64 `json:"openBid"`
+	OpenAsk  float64 `json:"openAsk"`
+	HighBid  float64 `json:"highBid"`
+	HighAsk  float64 `json:"highAsk"`
+	LowBid   float64 `json:"lowBid"`
+	LowAsk   float64 `json:"lowAsk"`
+	CloseBid float64 `json:"closeBid"`
+	CloseAsk float64 `json:"closeAsk"`
+	Volume   int     `json:"volume"`
+	Complete bool    `json:"complete"`
 }
 
 func (c bidAskCandle) String() string {
+	t := c.Time.Time()
 	return fmt.Sprintf("BidAskCandle{Time: %s, OpenBid: %f, OpenAsk: %f, HighBid: %f, "+
 		"HighAsk: %f, LowBid: %f, LowAsk: %f, CloseBid: %f, CloseAsk: %f, "+
-		"Volume: %d, Complete: %v}", c.Time.Format(time.RFC3339), c.OpenBid,
-		c.OpenAsk, c.HighBid, c.HighAsk, c.LowBid, c.LowAsk, c.CloseBid, c.CloseAsk,
-		c.Volume, c.Complete)
+		"Volume: %d, Complete: %v}", t.Format(time.RFC3339), c.OpenBid, c.OpenAsk, c.HighBid,
+		c.HighAsk, c.LowBid, c.LowAsk, c.CloseBid, c.CloseAsk, c.Volume, c.Complete)
 }

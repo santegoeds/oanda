@@ -32,9 +32,9 @@ const (
 )
 
 type (
-	HeartbeatHandlerFunc  func(time.Time)
+	HeartbeatHandlerFunc  func(Time)
 	messagesHandlerFunc   func(<-chan StreamMessage)
-	heartbeatsHandlerFunc func(<-chan time.Time)
+	heartbeatsHandlerFunc func(<-chan Time)
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +93,7 @@ func (msg *StreamMessage) UnmarshalJSON(data []byte) error {
 // StreamHandler
 
 type StreamHandler interface {
-	HandleHeartbeats(<-chan time.Time)
+	HandleHeartbeats(<-chan Time)
 	HandleMessages(<-chan StreamMessage)
 }
 
@@ -111,7 +111,7 @@ func (ss StreamServer) HandleMessages(msgC <-chan StreamMessage) {
 	}
 }
 
-func (ss StreamServer) HandleHeartbeats(hbC <-chan time.Time) {
+func (ss StreamServer) HandleHeartbeats(hbC <-chan Time) {
 	if ss.handleHeartbeatsFn != nil {
 		ss.handleHeartbeatsFn(hbC)
 	}
@@ -171,7 +171,7 @@ func (s *messageServer) initServer() error {
 }
 
 func (s *messageServer) readMessages() error {
-	hbC := make(chan time.Time)
+	hbC := make(chan Time)
 	defer close(hbC)
 	go s.sh.HandleHeartbeats(hbC)
 
@@ -242,7 +242,7 @@ func (s *messageServer) readMessages() error {
 				msgC <- msg
 			case "heartbeat":
 				v := struct {
-					Time time.Time `json:"time"`
+					Time Time `json:"time"`
 				}{}
 				if err := json.Unmarshal(msg.RawMessage, &v); err != nil {
 					// FIXME: log error

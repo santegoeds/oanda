@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultDateFormat  = DateFormat("RFC3339")
+	defaultDateFormat  = DateFormat("UNIX")
 	defaultContentType = ContentType("application/x-www-form-urlencoded")
 )
 

@@ -73,7 +73,7 @@ func (ts *TestLabsSuite) TestLabsOrderBooks(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Log(obs)
 	c.Assert(len(obs) > 1, check.Equals, true)
-	c.Assert(obs[0].Timestamp.After(obs[1].Timestamp), check.Equals, true)
+	c.Assert(obs[0].Timestamp.UnixMicro() > obs[1].Timestamp.UnixMicro(), check.Equals, true)
 }
 
 func (ts *TestLabsSuite) TestLabsAutochartistPattern(c *check.C) {

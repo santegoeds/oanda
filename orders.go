@@ -37,20 +37,20 @@ const (
 )
 
 type Order struct {
-	OrderId        int       `json:"id"`
-	Units          int       `json:"units"`
-	Instrument     string    `json:"instrument"`
-	Side           string    `json:"side"`
-	Price          float64   `json:"price"`
-	Time           time.Time `json:"time"`
-	StopLoss       float64   `json:"stopLoss"`
-	TakeProfit     float64   `json:"takeProfit"`
-	TrailingStop   float64   `json:"trailingStop"`
-	TrailingAmount float64   `json:"trailingAmount"`
-	OrderType      string    `json:"type"`
-	Expiry         time.Time `json:"expiry"`
-	UpperBound     float64   `json:"upperBound"`
-	LowerBound     float64   `json:"lowerBound"`
+	OrderId        int     `json:"id"`
+	Units          int     `json:"units"`
+	Instrument     string  `json:"instrument"`
+	Side           string  `json:"side"`
+	Price          float64 `json:"price"`
+	Time           Time    `json:"time"`
+	StopLoss       float64 `json:"stopLoss"`
+	TakeProfit     float64 `json:"takeProfit"`
+	TrailingStop   float64 `json:"trailingStop"`
+	TrailingAmount float64 `json:"trailingAmount"`
+	OrderType      string  `json:"type"`
+	Expiry         Time    `json:"expiry"`
+	UpperBound     float64 `json:"upperBound"`
+	LowerBound     float64 `json:"lowerBound"`
 }
 
 // String implements the fmt.Stringer interface.
@@ -110,6 +110,7 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 	price float64, expiry time.Time, args ...NewOrderArg) (*Order, error) {
 
 	instrument = strings.ToUpper(instrument)
+	expiryStr := strconv.Itoa(int(expiry.UTC().Unix()))
 
 	o := Order{
 		Side:       string(side),
@@ -117,25 +118,25 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 		Instrument: instrument,
 		Price:      price,
 		OrderType:  string(orderType),
-		Expiry:     expiry,
+		Expiry:     Time(expiryStr),
 	}
 	data := url.Values{
-		"type":       {string(orderType)},
-		"side":       {string(side)},
+		"type":       {o.OrderType},
+		"side":       {o.Side},
 		"units":      {strconv.Itoa(units)},
 		"instrument": {instrument},
 		"price":      {strconv.FormatFloat(price, 'f', -1, 64)},
-		"expiry":     {expiry.UTC().Format(time.RFC3339)},
+		"expiry":     {expiryStr},
 	}
 	for _, arg := range args {
 		arg.applyNewOrderArg(data)
 	}
 
 	rspData := struct {
-		Instrument  string    `json:"instrument"`
-		Time        time.Time `json:"time"`
-		Price       float64   `json:"price"`
-		OrderOpened *Order    `json:"orderOpened"`
+		Instrument  string  `json:"instrument"`
+		Time        Time    `json:"time"`
+		Price       float64 `json:"price"`
+		OrderOpened *Order  `json:"orderOpened"`
 	}{
 		OrderOpened: &o,
 	}
@@ -275,12 +276,12 @@ func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrde
 }
 
 type CancelOrderResponse struct {
-	TransactionId int       `json:"id"`
-	Instrument    string    `json:"instrument"`
-	Units         int       `json:"units"`
-	Side          string    `json:"side"`
-	Price         float64   `json:"price"`
-	Time          time.Time `json:"time"`
+	TransactionId int     `json:"id"`
+	Instrument    string  `json:"instrument"`
+	Units         int     `json:"units"`
+	Side          string  `json:"side"`
+	Price         float64 `json:"price"`
+	Time          Time    `json:"time"`
 }
 
 // CancelOrder closes an open order.

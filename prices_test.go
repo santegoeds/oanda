@@ -125,7 +125,7 @@ func (ts *TestPricesSuite) TestPriceServerHeartbeat(c *check.C) {
 	ps, err := ts.c.NewPriceServer("gbp_aud")
 	c.Assert(err, check.IsNil)
 
-	ps.HeartbeatFunc = func(hb time.Time) {
+	ps.HeartbeatFunc = func(hb oanda.Time) {
 		c.Logf("Heartbeat: %s", hb)
 		ps.Stop()
 	}

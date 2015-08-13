@@ -60,7 +60,7 @@ func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	c.Assert(dup.StopLoss, check.Equals, t.StopLoss)
 	c.Assert(dup.TakeProfit, check.Equals, t.TakeProfit)
 	c.Assert(dup.TrailingStop, check.Equals, t.TrailingStop)
-	c.Assert(dup.Time.Equal(t.Time), check.Equals, true)
+	c.Assert(dup.Time, check.Equals, t.Time)
 
 	t, err = ts.c.ModifyTrade(t.TradeId, oanda.StopLoss(0.75))
 	c.Assert(err, check.IsNil)
@@ -77,7 +77,7 @@ func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	c.Assert(trades[0].StopLoss, check.Equals, t.StopLoss)
 	c.Assert(trades[0].TakeProfit, check.Equals, t.TakeProfit)
 	c.Assert(trades[0].TrailingStop, check.Equals, t.TrailingStop)
-	c.Assert(trades[0].Time.Equal(t.Time), check.Equals, true)
+	c.Assert(trades[0].Time, check.Equals, t.Time)
 
 	rsp, err := ts.c.CloseTrade(t.TradeId)
 	c.Assert(err, check.IsNil)

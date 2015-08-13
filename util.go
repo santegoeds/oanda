@@ -15,7 +15,6 @@
 package oanda
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -49,7 +48,7 @@ func (oa optionalArgs) SetIntArray(k string, ia []int) {
 }
 
 func (oa optionalArgs) SetTime(k string, t time.Time) {
-	url.Values(oa).Set(k, t.UTC().Format(time.RFC3339))
+	oa.SetInt(k, int(t.UTC().Unix()))
 }
 
 func (oa optionalArgs) SetStringer(k string, v fmt.Stringer) {
@@ -60,17 +59,20 @@ func (oa optionalArgs) SetBool(k string, b bool) {
 	url.Values(oa).Set(k, strconv.FormatBool(b))
 }
 
-// Time embeds time.Time and serves to Unmarshal from Integer values.
-type Time struct {
-	time.Time
+type Time string
+
+// Time return the time as time.Time instance.
+func (t Time) Time() time.Time {
+	return time.Unix(0, t.UnixNano())
 }
 
-// Implements the json.UnmarshalJSON interface.
-func (t *Time) UnmarshalJSON(data []byte) error {
-	var secs int64
-	if err := json.Unmarshal(data, &secs); err != nil {
-		return err
+func (t Time) UnixMicro() int64 {
+	if unix, err := strconv.ParseInt(string(t), 10, 64); err == nil {
+		return unix
 	}
-	t.Time = time.Unix(secs, 0)
-	return nil
+	return 0
+}
+
+func (t Time) UnixNano() int64 {
+	return t.UnixMicro() * 1000
 }

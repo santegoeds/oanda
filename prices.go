@@ -28,10 +28,10 @@ type Prices map[string]PriceTick
 // PriceTick holds the Bid price, Ask price and status for an instrument at a given point
 // in time
 type PriceTick struct {
-	Time   time.Time `json:"time"`
-	Bid    float64   `json:"bid"`
-	Ask    float64   `json:"ask"`
-	Status string    `json:"status"`
+	Time   Time    `json:"time"`
+	Bid    float64 `json:"bid"`
+	Ask    float64 `json:"ask"`
+	Status string  `json:"status"`
 }
 
 // Spread returns the difference between Ask and Bid prices.
@@ -214,7 +214,7 @@ func (ps *PriceServer) initServer(handleFn TickHandlerFunc) {
 	}
 }
 
-func (ps *PriceServer) handleHeartbeats(hbC <-chan time.Time) {
+func (ps *PriceServer) handleHeartbeats(hbC <-chan Time) {
 	for hb := range hbC {
 		if ps.HeartbeatFunc != nil {
 			ps.HeartbeatFunc(hb)

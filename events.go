@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,10 +39,10 @@ func (td *evtTradeDetail) Pl() float64       { return td.content.Pl }
 func (td *evtTradeDetail) Interest() float64 { return td.content.Interest }
 
 type evtHeaderContent struct {
-	TranId    int       `json:"id"`
-	AccountId int       `json:"accountId"`
-	Time      time.Time `json:"time"`
-	Type      string    `json:"type"`
+	TranId    int    `json:"id"`
+	AccountId int    `json:"accountId"`
+	Time      Time   `json:"time"`
+	Type      string `json:"type"`
 }
 
 type evtHeader struct {
@@ -55,7 +54,7 @@ type evtBody struct {
 	Side                     string              `json:"side"`
 	Units                    int                 `json:"units"`
 	Price                    float64             `json:"price"`
-	Expiry                   time.Time           `json:"expiry"`
+	Expiry                   Time                `json:"expiry"`
 	Reason                   string              `json:"reason"`
 	LowerBound               float64             `json:"lowerBound"`
 	UpperBound               float64             `json:"upperBound"`
@@ -77,14 +76,14 @@ type evtBody struct {
 type Event interface {
 	TranId() int
 	AccountId() int
-	Time() time.Time
+	Time() Time
 	Type() string
 }
 
-func (t *evtHeader) TranId() int     { return t.content.TranId }
-func (t *evtHeader) AccountId() int  { return t.content.AccountId }
-func (t *evtHeader) Time() time.Time { return t.content.Time }
-func (t *evtHeader) Type() string    { return t.content.Type }
+func (t *evtHeader) TranId() int    { return t.content.TranId }
+func (t *evtHeader) AccountId() int { return t.content.AccountId }
+func (t *evtHeader) Time() Time     { return t.content.Time }
+func (t *evtHeader) Type() string   { return t.content.Type }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (t *evtHeader) UnmarshalJSON(data []byte) (err error) {
@@ -159,7 +158,7 @@ func (t *OrderCreateEvent) Instrument() string       { return t.body.Instrument 
 func (t *OrderCreateEvent) Side() string             { return t.body.Side }
 func (t *OrderCreateEvent) Units() int               { return t.body.Units }
 func (t *OrderCreateEvent) Price() float64           { return t.body.Price }
-func (t *OrderCreateEvent) Expiry() time.Time        { return t.body.Expiry }
+func (t *OrderCreateEvent) Expiry() Time             { return t.body.Expiry }
 func (t *OrderCreateEvent) Reason() string           { return t.body.Reason }
 func (t *OrderCreateEvent) LowerBound() float64      { return t.body.LowerBound }
 func (t *OrderCreateEvent) UpperBound() float64      { return t.body.UpperBound }
@@ -532,7 +531,7 @@ func (es *EventServer) initServer(handleFn EventHandlerFunc) {
 	return
 }
 
-func (es *EventServer) handleHeartbeats(hbC <-chan time.Time) {
+func (es *EventServer) handleHeartbeats(hbC <-chan Time) {
 	for hb := range hbC {
 		if es.HeartbeatFunc != nil {
 			es.HeartbeatFunc(hb)

@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type NewTradeArg interface {
@@ -84,16 +83,16 @@ func (ts TrailingStop) applyModifyTradeArg(v url.Values) {
 
 // Trade represents an open Oanda trade.
 type Trade struct {
-	TradeId        int       `json:"id"`
-	Units          int       `json:"units"`
-	Instrument     string    `json:"instrument"`
-	Side           string    `json:"side"`
-	Price          float64   `json:"price"`
-	Time           time.Time `json:"time"`
-	StopLoss       float64   `json:"stopLoss"`
-	TakeProfit     float64   `json:"takeProfit"`
-	TrailingStop   float64   `json:"trailingStop"`
-	TrailingAmount float64   `json:"trailingAmount"`
+	TradeId        int     `json:"id"`
+	Units          int     `json:"units"`
+	Instrument     string  `json:"instrument"`
+	Side           string  `json:"side"`
+	Price          float64 `json:"price"`
+	Time           Time    `json:"time"`
+	StopLoss       float64 `json:"stopLoss"`
+	TakeProfit     float64 `json:"takeProfit"`
+	TrailingStop   float64 `json:"trailingStop"`
+	TrailingAmount float64 `json:"trailingAmount"`
 }
 
 // String implements the Stringer interface.
@@ -131,11 +130,11 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 	}
 
 	rspData := struct {
-		Instrument   string    `json:"instrument"`
-		Time         time.Time `json:"time"`
-		Price        float64   `json:"price"`
-		TradeOpened  *Trade    `json:"tradeOpened"`
-		TradeReduced *Trade    `json:"tradeReduced"`
+		Instrument   string  `json:"instrument"`
+		Time         Time    `json:"time"`
+		Price        float64 `json:"price"`
+		TradeOpened  *Trade  `json:"tradeOpened"`
+		TradeReduced *Trade  `json:"tradeReduced"`
 	}{
 		TradeOpened:  t,
 		TradeReduced: t,
@@ -207,12 +206,12 @@ func (c *Client) ModifyTrade(tradeId int, arg ModifyTradeArg, args ...ModifyTrad
 }
 
 type CloseTradeResponse struct {
-	TransactionId int       `json:"id"`
-	Price         float64   `json:"price"`
-	Instrument    string    `json:"instrument"`
-	Profit        float64   `json:"profit"`
-	Side          string    `json:"side"`
-	Time          time.Time `json:"time"`
+	TransactionId int     `json:"id"`
+	Price         float64 `json:"price"`
+	Instrument    string  `json:"instrument"`
+	Profit        float64 `json:"profit"`
+	Side          string  `json:"side"`
+	Time          Time    `json:"time"`
 }
 
 // CloseTrade closes an open trade.
