@@ -422,27 +422,27 @@ func (ob *OrderBook) Sort() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // AutochartistPattern
 
-type AutochartistPatternArg interface {
-	applyAutochartistPatternArg(url.Values)
+type AutochartistArg interface {
+	applyAutochartistArg(url.Values)
 }
 
-func (i Instrument) applyAutochartistPatternArg(v url.Values) {
+func (i Instrument) applyAutochartistArg(v url.Values) {
 	v.Set("instrument", strings.ToUpper(string(i)))
 }
 
-func (p Period) applyAutochartistPatternArg(v url.Values) {
+func (p Period) applyAutochartistArg(v url.Values) {
 	v.Set("period", strconv.Itoa(int(p)))
 }
 
 type Quality int
 
-func (q Quality) applyAutochartistPatternArg(v url.Values) {
+func (q Quality) applyAutochartistArg(v url.Values) {
 	v.Set("quality", strconv.Itoa(int(q)))
 }
 
 type Direction string
 
-func (d Direction) applyAutochartistPatternArg(v url.Values) {
+func (d Direction) applyAutochartistArg(v url.Values) {
 	v.Set("direction", string(d))
 }
 
@@ -566,7 +566,7 @@ func (p AutochartistPattern) String() string {
 }
 
 // AutochartistPattern
-func (c *Client) AutochartistPattern(arg ...AutochartistPatternArg) (*AutochartistPattern, error) {
+func (c *Client) AutochartistPattern(arg ...AutochartistArg) (*AutochartistPattern, error) {
 	u, err := url.Parse("/labs/v1/signal/autochartist")
 	if err != nil {
 		return nil, err
@@ -574,7 +574,7 @@ func (c *Client) AutochartistPattern(arg ...AutochartistPatternArg) (*Autocharti
 	q := u.Query()
 	q.Set("type", "chartpattern")
 	for _, a := range arg {
-		a.applyAutochartistPatternArg(q)
+		a.applyAutochartistArg(q)
 	}
 	u.RawQuery = q.Encode()
 
