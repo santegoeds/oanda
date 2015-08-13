@@ -75,6 +75,10 @@ func CancelAllOrders(c *check.C, client *oanda.Client) {
 }
 
 func CloseAllPositions(c *check.C, client *oanda.Client) {
+	if client == nil {
+		return
+	}
+
 	positions, err := client.Positions()
 	c.Assert(err, check.IsNil)
 

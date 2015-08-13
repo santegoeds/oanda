@@ -31,10 +31,8 @@ func (ts *TestPositionSuite) SetUpSuite(c *check.C) {
 }
 
 func (ts *TestPositionSuite) TearDownSuite(c *check.C) {
-	if ts.c != nil {
-		CancelAllOrders(c, ts.c)
-		CloseAllPositions(c, ts.c)
-	}
+	CancelAllOrders(c, ts.c)
+	CloseAllPositions(c, ts.c)
 }
 
 func (ts *TestPositionSuite) TestPositionsApi(c *check.C) {
