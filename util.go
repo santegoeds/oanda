@@ -67,7 +67,7 @@ func (t Time) Time() time.Time {
 }
 
 func (t Time) UnixMicro() int64 {
-	if !t.IsZero() {
+	if t.IsZero() {
 		return 0
 	}
 	if unix, err := strconv.ParseInt(string(t), 10, 64); err == nil {
