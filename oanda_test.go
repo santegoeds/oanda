@@ -21,12 +21,15 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"testing"
 	"time"
 
 	"gopkg.in/check.v1"
 
 	"github.com/santegoeds/oanda"
 )
+
+func Test(t *testing.T) { check.TestingT(t) }
 
 func NewTestClient(c *check.C, selectAccount bool) *oanda.Client {
 	envName := "FXPRACTICE_TOKEN"

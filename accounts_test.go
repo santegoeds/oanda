@@ -15,14 +15,10 @@
 package oanda_test
 
 import (
-	"testing"
-
 	"github.com/santegoeds/oanda"
 
 	"gopkg.in/check.v1"
 )
-
-func Test(t *testing.T) { check.TestingT(t) }
 
 type TestAccountSuite struct {
 	c *oanda.Client
