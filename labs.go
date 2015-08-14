@@ -39,7 +39,7 @@ const (
 
 type CalendarEvent struct {
 	Title     string  `json:"title"`
-	Timestamp Time    `json:"timestamp"`
+	Timestamp int64   `json:"timestamp"`
 	Unit      string  `json:"unit"`
 	Currency  string  `json:"currency"`
 	Forecast  float64 `json:"forecast,string"`
@@ -49,9 +49,11 @@ type CalendarEvent struct {
 }
 
 func (ce CalendarEvent) String() string {
-	return fmt.Sprintf("CalendarEvent{Title: %s, Timestamp: %v, Unit: %s, Currency: %s, "+
+	t := time.Unix(0, ce.Timestamp*1000)
+	return fmt.Sprintf("CalendarEvent{Title: %s, Timestamp: %s, Unit: %s, Currency: %s, "+
 		"Forecast: %v, Previous: %v, Actual: %v, Market: %v}", ce.Title,
-		ce.Timestamp, ce.Unit, ce.Currency, ce.Forecast, ce.Previous, ce.Actual, ce.Market)
+		t.Format(time.RFC3339), ce.Unit, ce.Currency, ce.Forecast, ce.Previous, ce.Actual,
+		ce.Market)
 }
 
 // Calendar returns and array of economic calendar events associated with an instrument. Events
@@ -225,7 +227,7 @@ func (c *Client) Spreads(instrument string, period Period, unique bool) (*Spread
 // CommitmentsOfTraders
 
 type CommitmentsOfTraders struct {
-	Date               Time    `json:"date"`
+	Date               int64   `json:"date"`
 	Price              float64 `json:"price,string"`
 	OverallInterest    int     `json:"oi,string"`
 	NonCommercialLong  int     `json:"ncl,string"`
@@ -234,8 +236,9 @@ type CommitmentsOfTraders struct {
 }
 
 func (c CommitmentsOfTraders) String() string {
-	return fmt.Sprintf("CommitmentsOfTraders{Date: %v, Price: %f, OverallInterest: %d, "+
-		"NonCommercialLong: %d, NonCommercialShort: %d, Unit: %s}", c.Date, c.Price,
+	t := time.Unix(0, c.Date*1000)
+	return fmt.Sprintf("CommitmentsOfTraders{Date: %s, Price: %f, OverallInterest: %d, "+
+		"NonCommercialLong: %d, NonCommercialShort: %d, Unit: %s}", t.Format(time.RFC3339), c.Price,
 		c.OverallInterest, c.NonCommercialLong, c.NonCommercialShort,
 		c.Unit)
 }
@@ -334,11 +337,7 @@ func (obs *OrderBooks) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	for timeStr, ob := range m {
-		if unixTime, err := strconv.Atoi(timeStr); err != nil {
-			return err
-		} else {
-			ob.Timestamp = Time(unixTime)
-		}
+		ob.Timestamp = Time(timeStr)
 		*obs = append(*obs, ob)
 	}
 	return nil
@@ -388,7 +387,7 @@ func (obs *orderBookSorter) Swap(i, j int) {
 }
 
 func (obs *orderBookSorter) Less(i, j int) bool {
-	return obs.orderBooks[i].Timestamp.UnixMicro() > obs.orderBooks[j].Timestamp.UnixMicro()
+	return obs.orderBooks[i].Timestamp.UnixMicro() < obs.orderBooks[j].Timestamp.UnixMicro()
 }
 
 func (obs *OrderBooks) Sort() {
@@ -495,30 +494,33 @@ func (m AutochartistSignalMeta) String() string {
 }
 
 type Point struct {
-	X0 Time    `json:"x0"`
-	X1 Time    `json:"x1"`
+	X0 int64   `json:"x0"`
+	X1 int64   `json:"x1"`
 	Y0 float64 `json:"y0"`
 	Y1 float64 `json:"y1"`
 }
 
 func (p Point) String() string {
-	return fmt.Sprintf("Point{X0: %v, X1: %v, Y0: %v, Y1: %v}", p.X0, p.X1, p.Y0, p.Y1)
+	x0, x1 := time.Unix(0, p.X0*1000), time.Unix(0, p.X1*1000)
+	return fmt.Sprintf("Point{X0: %s, X1: %s, Y0: %v, Y1: %v}", x0.Format(time.RFC3339),
+		x1.Format(time.RFC3339), p.Y0, p.Y1)
 }
 
 type Prediction struct {
-	TimeTo    Time    `json:"timeto"`
-	TimeFrom  Time    `json:"timefrom"`
+	TimeTo    int64   `json:"timeto"`
+	TimeFrom  int64   `json:"timefrom"`
 	PriceHigh float64 `json:"pricehigh"`
 	PriceLow  float64 `json:"pricelow"`
 }
 
 func (p Prediction) String() string {
-	return fmt.Sprintf("Prediction{TimeTo: %v, TimeFrom: %v, PriceHigh: %v, PriceLow: %v}",
-		p.TimeTo, p.TimeFrom, p.PriceHigh, p.PriceLow)
+	tt, tf := time.Unix(0, p.TimeTo*1000), time.Unix(0, p.TimeFrom*1000)
+	return fmt.Sprintf("Prediction{TimeTo: %s, TimeFrom: %s, PriceHigh: %v, PriceLow: %v}",
+		tt.Format(time.RFC3339), tf.Format(time.RFC3339), p.PriceHigh, p.PriceLow)
 }
 
 type AutochartistSignalData struct {
-	PatternEndTime Time
+	PatternEndTime int64
 	Points         struct {
 		Resistance Point `json:"resistance"`
 		Support    Point `json:"support"`
@@ -527,8 +529,10 @@ type AutochartistSignalData struct {
 }
 
 func (d AutochartistSignalData) String() string {
-	return fmt.Sprintf("Data{PatternEndTime: %v, Points{Resistance: %v, Support: %v}, "+
-		"Prediction: %v}", d.PatternEndTime, d.Points.Resistance, d.Points.Support, d.Prediction)
+	pet := time.Unix(0, d.PatternEndTime*1000)
+	return fmt.Sprintf("Data{PatternEndTime: %s, Points{Resistance: %v, Support: %v}, "+
+		"Prediction: %v}", pet.Format(time.RFC3339), d.Points.Resistance, d.Points.Support,
+		d.Prediction)
 }
 
 type AutochartistSignal struct {
