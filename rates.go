@@ -224,7 +224,7 @@ func (wa WeeklyAlignment) applyCandlesArg(v url.Values) {
 type MidpointCandles struct {
 	Instrument  string           `json:"instrument"`
 	Granularity Granularity      `json:"granularity"`
-	Candles     []midpointCandle `json:"candles"`
+	Candles     []MidpointCandle `json:"candles"`
 }
 
 func (c MidpointCandles) String() string {
@@ -236,7 +236,7 @@ func (c MidpointCandles) String() string {
 type BidAskCandles struct {
 	Instrument  string         `json:"instrument"`
 	Granularity Granularity    `json:"granularity"`
-	Candles     []bidAskCandle `json:"candles"`
+	Candles     []BidAskCandle `json:"candles"`
 }
 
 func (c BidAskCandles) String() string {
@@ -297,7 +297,7 @@ func (c *Client) newCandlesURL(instrument string, granularity Granularity, candl
 	return u, err
 }
 
-type midpointCandle struct {
+type MidpointCandle struct {
 	Time     Time    `json:"time"`
 	OpenMid  float64 `json:"openMid"`
 	HighMid  float64 `json:"highMid"`
@@ -307,13 +307,13 @@ type midpointCandle struct {
 	Complete bool    `json:"complete"`
 }
 
-func (c midpointCandle) String() string {
+func (c MidpointCandle) String() string {
 	return fmt.Sprintf("MidpointCandle{Time: %v, OpenMid: %f, HighMid: %f, LowMid: %f, "+
 		"CloseMid: %f, Volume: %d, Complete: %v}", c.Time, c.OpenMid, c.HighMid, c.LowMid,
 		c.CloseMid, c.Volume, c.Complete)
 }
 
-type bidAskCandle struct {
+type BidAskCandle struct {
 	Time     Time    `json:"time"`
 	OpenBid  float64 `json:"openBid"`
 	OpenAsk  float64 `json:"openAsk"`
@@ -327,7 +327,7 @@ type bidAskCandle struct {
 	Complete bool    `json:"complete"`
 }
 
-func (c bidAskCandle) String() string {
+func (c BidAskCandle) String() string {
 	return fmt.Sprintf("BidAskCandle{Time: %v, OpenBid: %f, OpenAsk: %f, HighBid: %f, "+
 		"HighAsk: %f, LowBid: %f, LowAsk: %f, CloseBid: %f, CloseAsk: %f, "+
 		"Volume: %d, Complete: %v}", c.Time, c.OpenBid, c.OpenAsk, c.HighBid,
