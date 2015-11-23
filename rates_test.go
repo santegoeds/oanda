@@ -23,17 +23,18 @@ import (
 )
 
 type TestRatesSuite struct {
-	c *oanda.Client
+	OandaSuite
 }
 
 var _ = check.Suite(&TestRatesSuite{})
 
 func (ts *TestRatesSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, true)
+	ts.OandaSuite.SetUpSuite(c)
+	ts.SetUpAccount(c)
 }
 
 func (ts *TestRatesSuite) TestRatesInstruments(c *check.C) {
-	instruments, err := ts.c.Instruments(nil, nil)
+	instruments, err := ts.Client.Instruments(nil, nil)
 	c.Assert(err, check.IsNil)
 	c.Log(instruments)
 	c.Assert(instruments, check.Not(check.HasLen), 0)
@@ -52,7 +53,7 @@ func (ts *TestRatesSuite) TestRatesInstrumentsWithFields(c *check.C) {
 		oanda.InterestRateField,
 	}
 
-	instruments, err := ts.c.Instruments(nil, fields)
+	instruments, err := ts.Client.Instruments(nil, fields)
 	c.Assert(err, check.IsNil)
 	c.Log(instruments)
 	c.Assert(instruments, check.Not(check.HasLen), 0)
@@ -73,7 +74,7 @@ func (ts *TestRatesSuite) TestRatesInstrumentsWithFields(c *check.C) {
 
 func (ts *TestRatesSuite) TestRatesMidpointCandles(c *check.C) {
 	instrument, granularity := "eur_usd", oanda.D
-	candles, err := ts.c.PollMidpointCandles(instrument, granularity)
+	candles, err := ts.Client.PollMidpointCandles(instrument, granularity)
 	c.Assert(err, check.IsNil)
 	c.Log(candles)
 	c.Assert(candles.Instrument, check.Equals, strings.ToUpper(instrument))
@@ -83,7 +84,7 @@ func (ts *TestRatesSuite) TestRatesMidpointCandles(c *check.C) {
 
 func (ts *TestRatesSuite) TestRatesBidAskCandles(c *check.C) {
 	instrument, granularity := "eur_usd", oanda.D
-	candles, err := ts.c.PollBidAskCandles(instrument, granularity)
+	candles, err := ts.Client.PollBidAskCandles(instrument, granularity)
 	c.Assert(err, check.IsNil)
 	c.Log(candles)
 	c.Assert(candles.Instrument, check.Equals, strings.ToUpper(instrument))

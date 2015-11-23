@@ -21,24 +21,18 @@ import (
 )
 
 type TestTradeSuite struct {
-	c *oanda.Client
+	OandaSuite
 }
 
 var _ = check.Suite(&TestTradeSuite{})
 
 func (ts *TestTradeSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, true)
-}
-
-func (ts *TestTradeSuite) TearDownSuite(c *check.C) {
-	if ts.c != nil {
-		CancelAllOrders(c, ts.c)
-		CloseAllPositions(c, ts.c)
-	}
+	ts.OandaSuite.SetUpSuite(c)
+	ts.SetUpAccount(c)
 }
 
 func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
-	t, err := ts.c.NewTrade(oanda.Buy, 2, "eur_usd", oanda.StopLoss(0.5), oanda.TakeProfit(3.0))
+	t, err := ts.Client.NewTrade(oanda.Buy, 2, "eur_usd", oanda.StopLoss(0.5), oanda.TakeProfit(3.0))
 	c.Assert(err, check.IsNil)
 	c.Log(t)
 	c.Assert(t.TradeId, check.Not(check.Equals), 0)
@@ -50,7 +44,7 @@ func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	c.Assert(t.TakeProfit, check.Equals, 3.0)
 	c.Assert(t.TrailingStop, check.Equals, 0.0)
 
-	dup, err := ts.c.Trade(t.TradeId)
+	dup, err := ts.Client.Trade(t.TradeId)
 	c.Assert(err, check.IsNil)
 	c.Assert(dup.TradeId, check.Equals, t.TradeId)
 	c.Assert(dup.Price, check.Equals, t.Price)
@@ -62,11 +56,11 @@ func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	c.Assert(dup.TrailingStop, check.Equals, t.TrailingStop)
 	c.Assert(dup.Time, check.Equals, t.Time)
 
-	t, err = ts.c.ModifyTrade(t.TradeId, oanda.StopLoss(0.75))
+	t, err = ts.Client.ModifyTrade(t.TradeId, oanda.StopLoss(0.75))
 	c.Assert(err, check.IsNil)
 	c.Assert(t.StopLoss, check.Equals, 0.75)
 
-	trades, err := ts.c.Trades()
+	trades, err := ts.Client.Trades()
 	c.Assert(err, check.IsNil)
 	c.Assert(trades, check.HasLen, 1)
 	c.Assert(trades[0].TradeId, check.Equals, t.TradeId)
@@ -79,11 +73,11 @@ func (ts *TestTradeSuite) TestTradeApi(c *check.C) {
 	c.Assert(trades[0].TrailingStop, check.Equals, t.TrailingStop)
 	c.Assert(trades[0].Time, check.Equals, t.Time)
 
-	rsp, err := ts.c.CloseTrade(t.TradeId)
+	rsp, err := ts.Client.CloseTrade(t.TradeId)
 	c.Assert(err, check.IsNil)
 	c.Log(rsp)
 
-	trades, err = ts.c.Trades()
+	trades, err = ts.Client.Trades()
 	c.Assert(err, check.IsNil)
 	c.Assert(trades, check.HasLen, 0)
 }

@@ -24,31 +24,32 @@ import (
 )
 
 type TestEventSuite struct {
+	OandaSuite
 	AccountId int
-	c         *oanda.Client
 }
 
 var _ = check.Suite(&TestEventSuite{})
 
 func (ts *TestEventSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, true)
+	ts.OandaSuite.SetUpSuite(c)
+	ts.SetUpAccount(c)
 }
 
 func (ts *TestEventSuite) TearDownSuite(c *check.C) {
-	CancelAllOrders(c, ts.c)
+	CancelAllOrders(c, ts.Client)
 }
 
 func (ts *TestEventSuite) TestEventApi(c *check.C) {
 	expiry := time.Now().Add(24 * time.Hour)
-	_, err := ts.c.NewOrder(oanda.Limit, oanda.Buy, 1, "eur_usd", 0.75, expiry)
+	_, err := ts.Client.NewOrder(oanda.Limit, oanda.Buy, 1, "eur_usd", 0.75, expiry)
 	c.Assert(err, check.IsNil)
 
-	events, err := ts.c.PollEvents(oanda.Count(1))
+	events, err := ts.Client.PollEvents(oanda.Count(1))
 	c.Assert(err, check.IsNil)
 	c.Log(events)
 	c.Assert(events, check.HasLen, 1)
 
-	c.Assert(events[0].AccountId(), check.Equals, ts.c.AccountId())
+	c.Assert(events[0].AccountId(), check.Equals, ts.Client.AccountId())
 	c.Assert(events[0].Type(), check.Equals, "LIMIT_ORDER_CREATE")
 
 	orderCreate1, ok := events[0].(*oanda.OrderCreateEvent)
@@ -62,7 +63,7 @@ func (ts *TestEventSuite) TestEventApi(c *check.C) {
 	c.Assert(orderExpiry.Equal(expiry.Truncate(time.Second)), check.Equals, true)
 	c.Assert(orderCreate1.Reason(), check.Equals, "CLIENT_REQUEST")
 
-	evt, err := ts.c.PollEvent(orderCreate1.TranId())
+	evt, err := ts.Client.PollEvent(orderCreate1.TranId())
 	c.Assert(err, check.IsNil)
 
 	c.Log(evt)
@@ -82,7 +83,7 @@ func (ts *TestEventSuite) TestEventApi(c *check.C) {
 }
 
 func (ts *TestEventSuite) TestEventServer(c *check.C) {
-	es, err := ts.c.NewEventServer(ts.c.AccountId())
+	es, err := ts.Client.NewEventServer(ts.Client.AccountId())
 	c.Assert(err, check.IsNil)
 
 	wg := sync.WaitGroup{}
@@ -122,6 +123,6 @@ func (ts *TestEventSuite) TestEventServer(c *check.C) {
 
 	time.Sleep(5 * time.Second)
 
-	ts.c.NewOrder(oanda.Limit, oanda.Buy, 1, "eur_usd", 0.75, expiry)
+	ts.Client.NewOrder(oanda.Limit, oanda.Buy, 1, "eur_usd", 0.75, expiry)
 	wg.Wait()
 }

@@ -15,23 +15,17 @@
 package oanda_test
 
 import (
-	"github.com/santegoeds/oanda"
-
 	"gopkg.in/check.v1"
 )
 
 type TestAccountSuite struct {
-	c *oanda.Client
+	OandaSuite
 }
 
 var _ = check.Suite(&TestAccountSuite{})
 
-func (ts *TestAccountSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, false)
-}
-
 func (ts *TestAccountSuite) TestAccountApi(c *check.C) {
-	accs, err := ts.c.Accounts()
+	accs, err := ts.Client.Accounts()
 	c.Assert(err, check.IsNil)
 	c.Logf("Accounts (%d): %v", len(accs), accs)
 	c.Assert(len(accs) > 0, check.Equals, true)
@@ -46,7 +40,7 @@ func (ts *TestAccountSuite) TestAccountApi(c *check.C) {
 
 	c.Assert(idx >= 0 && idx < len(accs), check.Equals, true)
 
-	acc, err := ts.c.Account(accs[idx].AccountId)
+	acc, err := ts.Client.Account(accs[idx].AccountId)
 	c.Assert(err, check.IsNil)
 	c.Log("Account:", acc)
 	c.Assert(acc.AccountId, check.Not(check.Equals), 0)

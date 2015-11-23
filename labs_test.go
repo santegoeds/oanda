@@ -22,18 +22,18 @@ import (
 )
 
 type TestLabsSuite struct {
-	c *oanda.Client
+	OandaSuite
 }
 
 var _ = check.Suite(&TestLabsSuite{})
 
 func (ts *TestLabsSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, false)
-	ts.c.Debug = "trace"
+	ts.OandaSuite.SetUpSuite(c)
+	ts.SetUpAccount(c)
 }
 
 func (ts *TestLabsSuite) TestLabsCalendar(c *check.C) {
-	events, err := ts.c.Calendar("eur_usd", oanda.Year)
+	events, err := ts.Client.Calendar("eur_usd", oanda.Year)
 	c.Assert(err, check.IsNil)
 	c.Log(events)
 	c.Assert(len(events) > 0, check.Equals, true)
@@ -41,7 +41,7 @@ func (ts *TestLabsSuite) TestLabsCalendar(c *check.C) {
 
 func (ts *TestLabsSuite) TestLabsPositionRatios(c *check.C) {
 	instrument := "eur_usd"
-	ratios, err := ts.c.PositionRatios(instrument, oanda.Year)
+	ratios, err := ts.Client.PositionRatios(instrument, oanda.Year)
 	c.Assert(err, check.IsNil)
 	c.Log(ratios)
 	instrument = strings.ToUpper(instrument)
@@ -52,7 +52,7 @@ func (ts *TestLabsSuite) TestLabsPositionRatios(c *check.C) {
 
 func (ts *TestLabsSuite) TestLabsSpreads(c *check.C) {
 	instrument := "eur_usd"
-	spreads, err := ts.c.Spreads(instrument, oanda.Day, true)
+	spreads, err := ts.Client.Spreads(instrument, oanda.Day, true)
 	c.Assert(err, check.IsNil)
 	c.Log(spreads)
 	c.Assert(len(spreads.Max) > 0, check.Equals, true)
@@ -62,7 +62,7 @@ func (ts *TestLabsSuite) TestLabsSpreads(c *check.C) {
 
 func (ts *TestLabsSuite) TestLabsCommitmentsOfTraders(c *check.C) {
 	instrument := "eur_usd"
-	cot, err := ts.c.CommitmentsOfTraders(instrument)
+	cot, err := ts.Client.CommitmentsOfTraders(instrument)
 	c.Assert(err, check.IsNil)
 	c.Log(cot)
 	c.Assert(len(cot) > 0, check.Equals, true)
@@ -70,7 +70,7 @@ func (ts *TestLabsSuite) TestLabsCommitmentsOfTraders(c *check.C) {
 
 func (ts *TestLabsSuite) TestLabsOrderBooks(c *check.C) {
 	instrument, period := "eur_usd", 6*oanda.Hour
-	obs, err := ts.c.OrderBooks(instrument, period)
+	obs, err := ts.Client.OrderBooks(instrument, period)
 	c.Assert(err, check.IsNil)
 	c.Log(obs)
 	c.Assert(len(obs) > 1, check.Equals, true)
@@ -78,7 +78,7 @@ func (ts *TestLabsSuite) TestLabsOrderBooks(c *check.C) {
 }
 
 func (ts *TestLabsSuite) TestLabsAutochartistPattern(c *check.C) {
-	p, err := ts.c.AutochartistPattern()
+	p, err := ts.Client.AutochartistPattern()
 	c.Assert(err, check.IsNil)
 	c.Log(p)
 	if len(p.Signals) > 0 {

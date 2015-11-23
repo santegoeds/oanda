@@ -23,23 +23,20 @@ import (
 )
 
 type TestOrderSuite struct {
-	c *oanda.Client
+	OandaSuite
+}
+
+func (ts *TestOrderSuite) SetUpSuite(c *check.C) {
+	ts.OandaSuite.SetUpSuite(c)
+	ts.SetUpAccount(c)
 }
 
 var _ = check.Suite(&TestOrderSuite{})
 
-func (ts *TestOrderSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, true)
-}
-
-func (ts *TestOrderSuite) TearDownSuite(c *check.C) {
-	CancelAllOrders(c, ts.c)
-}
-
 func (ts *TestOrderSuite) TestOrderApi(c *check.C) {
 	expiry := time.Now().Add(5 * time.Minute)
 
-	o, err := ts.c.NewOrder(oanda.Limit, oanda.Buy, 2, "eur_usd", 0.75, expiry,
+	o, err := ts.Client.NewOrder(oanda.Limit, oanda.Buy, 2, "eur_usd", 0.75, expiry,
 		oanda.UpperBound(1.0), oanda.LowerBound(0.5))
 	c.Assert(err, check.IsNil)
 	c.Log(o)
@@ -57,7 +54,7 @@ func (ts *TestOrderSuite) TestOrderApi(c *check.C) {
 	c.Assert(o.TakeProfit, check.Equals, 0.0)
 	c.Assert(o.TrailingStop, check.Equals, 0.0)
 
-	dup, err := ts.c.Order(o.OrderId)
+	dup, err := ts.Client.Order(o.OrderId)
 	c.Assert(err, check.IsNil)
 	c.Assert(dup.OrderId, check.Equals, o.OrderId)
 	c.Assert(dup.Expiry, check.Equals, o.Expiry)
@@ -72,7 +69,7 @@ func (ts *TestOrderSuite) TestOrderApi(c *check.C) {
 	c.Assert(dup.TakeProfit, check.Equals, o.TakeProfit)
 	c.Assert(dup.TrailingStop, check.Equals, o.TrailingStop)
 
-	orders, err := ts.c.Orders()
+	orders, err := ts.Client.Orders()
 	c.Assert(err, check.IsNil)
 	c.Log(orders)
 	c.Assert(orders, check.HasLen, 1)
@@ -89,14 +86,14 @@ func (ts *TestOrderSuite) TestOrderApi(c *check.C) {
 	c.Assert(orders[0].TakeProfit, check.Equals, o.TakeProfit)
 	c.Assert(orders[0].TrailingStop, check.Equals, o.TrailingStop)
 
-	o, err = ts.c.ModifyOrder(o.OrderId, oanda.Units(1))
+	o, err = ts.Client.ModifyOrder(o.OrderId, oanda.Units(1))
 	c.Assert(err, check.IsNil)
 	c.Assert(o.Units, check.Equals, 1)
 
-	rsp, err := ts.c.CancelOrder(o.OrderId)
+	rsp, err := ts.Client.CancelOrder(o.OrderId)
 	c.Assert(err, check.IsNil)
 	c.Log("OrderCancelResponse:", rsp)
-	orders, err = ts.c.Orders()
+	orders, err = ts.Client.Orders()
 	c.Assert(err, check.IsNil)
 	c.Assert(orders, check.HasLen, 0)
 }

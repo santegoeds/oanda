@@ -3,8 +3,8 @@ package status_test
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
 	"github.com/santegoeds/oanda/status"
+	"gopkg.in/check.v1"
 )
 
 type TestSuite struct{}

@@ -21,26 +21,22 @@ import (
 )
 
 type TestPositionSuite struct {
-	c *oanda.Client
+	OandaSuite
+}
+
+func (ts *TestPositionSuite) SetUpSuite(c *check.C) {
+	ts.OandaSuite.SetUpSuite(c)
+	ts.OandaSuite.SetUpAccount(c)
 }
 
 var _ = check.Suite(&TestPositionSuite{})
 
-func (ts *TestPositionSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, true)
-}
-
-func (ts *TestPositionSuite) TearDownSuite(c *check.C) {
-	CancelAllOrders(c, ts.c)
-	CloseAllPositions(c, ts.c)
-}
-
 func (ts *TestPositionSuite) TestPositionsApi(c *check.C) {
-	t, err := ts.c.NewTrade(oanda.Buy, 1, "eur_usd")
+	t, err := ts.Client.NewTrade(oanda.Buy, 1, "eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Log(t)
 
-	positions, err := ts.c.Positions()
+	positions, err := ts.Client.Positions()
 	c.Assert(err, check.IsNil)
 	c.Log(positions)
 	c.Assert(positions, check.HasLen, 1)
@@ -48,27 +44,27 @@ func (ts *TestPositionSuite) TestPositionsApi(c *check.C) {
 	c.Assert(positions[0].Units, check.Equals, t.Units)
 	c.Assert(positions[0].AvgPrice, check.Equals, t.Price)
 
-	p, err := ts.c.Position("eur_usd")
+	p, err := ts.Client.Position("eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Log(p)
 	c.Assert(p.Side, check.Equals, t.Side)
 	c.Assert(p.Units, check.Equals, t.Units)
 	c.Assert(p.AvgPrice, check.Equals, t.Price)
 
-	cpr, err := ts.c.ClosePosition("eur_usd")
+	cpr, err := ts.Client.ClosePosition("eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Log(cpr)
 	c.Assert(cpr.TranIds, check.HasLen, 2)
 	c.Assert(cpr.TotalUnits, check.Equals, 1)
 	c.Assert(cpr.Instrument, check.Equals, "EUR_USD")
 
-	positions, err = ts.c.Positions()
+	positions, err = ts.Client.Positions()
 	c.Assert(err, check.IsNil)
 	c.Assert(positions, check.HasLen, 0)
 }
 
 func (ts *TestPositionSuite) TestNonexistingPosition(c *check.C) {
-	_, err := ts.c.Position("eur_gbp")
+	_, err := ts.Client.Position("eur_gbp")
 	c.Assert(err, check.NotNil)
 
 	apiErr, ok := err.(*oanda.ApiError)

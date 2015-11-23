@@ -29,38 +29,50 @@ import (
 	"github.com/santegoeds/oanda"
 )
 
+type OandaSuite struct {
+	Client      *oanda.Client
+	OpenMarkets []string
+}
+
 func Test(t *testing.T) { check.TestingT(t) }
 
-func NewTestClient(c *check.C, selectAccount bool) *oanda.Client {
+func (s *OandaSuite) SetUpSuite(c *check.C) {
 	envName := "FXPRACTICE_TOKEN"
 	token := os.Getenv(envName)
 	if token == "" {
 		c.Skip(fmt.Sprintf("Environment variable %s is not defined", envName))
-		return nil
+		return
 	}
 	time.Sleep(2 * time.Second)
 	client, err := oanda.NewFxPracticeClient(token)
+
 	c.Assert(err, check.IsNil)
+	c.Assert(client, check.NotNil)
 
-	if !selectAccount {
-		return client
-	}
+	s.Client = client
+}
 
-	envName = "FXPRACTICE_ACCOUNT"
+func (s *OandaSuite) SetUpAccount(c *check.C) {
+	envName := "FXPRACTICE_ACCOUNT"
 	accountIdStr := os.Getenv(envName)
 	if accountIdStr == "" {
 		c.Skip(fmt.Sprintf("Environment variable %s is not defined", envName))
-		return nil
+		return
 	}
 
 	accountId, err := strconv.Atoi(accountIdStr)
 	c.Assert(err, check.IsNil)
-	client.SelectAccount(accountId)
+	s.Client.SelectAccount(accountId)
 
-	CloseAllPositions(c, client)
-	CancelAllOrders(c, client)
+	CancelAllOrders(c, s.Client)
+	CloseAllPositions(c, s.Client)
+}
 
-	return client
+func (s *OandaSuite) TearDownSuite(c *check.C) {
+	if s.Client != nil && s.Client.AccountId() != 0 {
+		CancelAllOrders(c, s.Client)
+		CloseAllPositions(c, s.Client)
+	}
 }
 
 func CancelAllOrders(c *check.C, client *oanda.Client) {

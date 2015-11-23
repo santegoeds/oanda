@@ -23,17 +23,18 @@ import (
 )
 
 type TestPricesSuite struct {
-	c *oanda.Client
+	OandaSuite
 }
 
 var _ = check.Suite(&TestPricesSuite{})
 
 func (ts *TestPricesSuite) SetUpSuite(c *check.C) {
-	ts.c = NewTestClient(c, true)
+	ts.OandaSuite.SetUpSuite(c)
+	ts.SetUpAccount(c)
 }
 
 func (ts *TestPricesSuite) TestPollPrices(c *check.C) {
-	prices, err := ts.c.PollPrices("EUR_USD", "EUR_GBP")
+	prices, err := ts.Client.PollPrices("EUR_USD", "EUR_GBP")
 	c.Assert(err, check.IsNil)
 	c.Log(prices)
 	c.Assert(prices, check.HasLen, 2)
@@ -44,13 +45,13 @@ func (ts *TestPricesSuite) TestPollPrices(c *check.C) {
 }
 
 func (ts *TestPricesSuite) TestPollPricesSince(c *check.C) {
-	prices, err := ts.c.PollPricesSince(time.Now().Add(-time.Hour), "eur_usd")
+	prices, err := ts.Client.PollPricesSince(time.Now().Add(-time.Hour), "eur_usd")
 	c.Assert(err, check.IsNil)
 	c.Assert(prices, check.HasLen, 1)
 }
 
 func (ts *TestPricesSuite) TestPricePoller(c *check.C) {
-	pp, err := ts.c.NewPricePoller(time.Time{}, "eur_usd", "eur_gbp")
+	pp, err := ts.Client.NewPricePoller(time.Time{}, "eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
 	prices, err := pp.Poll()
@@ -65,7 +66,7 @@ func (ts *TestPricesSuite) TestPricePoller(c *check.C) {
 }
 
 func (ts *TestPricesSuite) TestPriceServer(c *check.C) {
-	ps, err := ts.c.NewPriceServer("eur_usd", "eur_gbp")
+	ps, err := ts.Client.NewPriceServer("eur_usd", "eur_gbp")
 	c.Assert(err, check.IsNil)
 
 	timeout := 5 * time.Minute
@@ -88,7 +89,7 @@ func (ts *TestPricesSuite) TestPriceServer(c *check.C) {
 }
 
 func (ts *TestPricesSuite) TestPriceServerInvalidInstrument(c *check.C) {
-	ps, err := ts.c.NewPriceServer("gbp_eur")
+	ps, err := ts.Client.NewPriceServer("gbp_eur")
 	c.Assert(err, check.IsNil)
 	err = ps.ConnectAndHandle(func(in string, tick oanda.PriceTick) {
 		c.Fail()
@@ -99,7 +100,7 @@ func (ts *TestPricesSuite) TestPriceServerInvalidInstrument(c *check.C) {
 
 func (ts *TestPricesSuite) TestPriceServerMultipleInstrument(c *check.C) {
 	instruments := []string{"eur_usd", "gbp_usd"}
-	ps, err := ts.c.NewPriceServer(instruments...)
+	ps, err := ts.Client.NewPriceServer(instruments...)
 	c.Assert(err, check.IsNil)
 
 	timeout := 5 * time.Minute
@@ -122,7 +123,7 @@ func (ts *TestPricesSuite) TestPriceServerMultipleInstrument(c *check.C) {
 }
 
 func (ts *TestPricesSuite) TestPriceServerHeartbeat(c *check.C) {
-	ps, err := ts.c.NewPriceServer("gbp_aud")
+	ps, err := ts.Client.NewPriceServer("gbp_aud")
 	c.Assert(err, check.IsNil)
 
 	ps.HeartbeatFunc = func(hb oanda.Time) {
