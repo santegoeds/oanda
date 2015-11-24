@@ -62,23 +62,17 @@ func (ce CalendarEvent) String() string {
 // See http://developer.oanda.com/docs/v1/forex-labs/#calendar for further information.
 func (c *Client) Calendar(instrument string, period Period) ([]CalendarEvent, error) {
 	instrument = strings.ToUpper(instrument)
-	req, err := c.NewRequest("GET", "/labs/v1/calendar", nil)
+	u, err := url.Parse("/labs/v1/calendar")
 	if err != nil {
 		return nil, err
 	}
-	q := req.URL.Query()
+	q := u.Query()
 	q.Set("instrument", instrument)
 	q.Set("period", strconv.Itoa(int(period)))
-	req.URL.RawQuery = q.Encode()
+	u.RawQuery = q.Encode()
 
-	rsp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer closeResponse(rsp.Body)
-	dec := json.NewDecoder(rsp.Body)
-	ces := []CalendarEvent{}
-	if err := dec.Decode(&ces); err != nil {
+	ces := make([]CalendarEvent, 0)
+	if err = getAndDecode(c, u.String(), &ces); err != nil {
 		return nil, err
 	}
 	return ces, nil
@@ -134,24 +128,17 @@ func (pr *PositionRatios) UnmarshalJSON(data []byte) error {
 // information.
 func (c *Client) PositionRatios(instrument string, period Period) (*PositionRatios, error) {
 	instrument = strings.ToUpper(instrument)
-	req, err := c.NewRequest("GET", "/labs/v1/historical_position_ratios", nil)
+	u, err := url.Parse("/labs/v1/historical_position_ratios")
 	if err != nil {
 		return nil, err
 	}
-	q := req.URL.Query()
+	q := u.Query()
 	q.Set("instrument", instrument)
 	q.Set("period", strconv.Itoa(int(period)))
-	req.URL.RawQuery = q.Encode()
-
-	rsp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer closeResponse(rsp.Body)
+	u.RawQuery = q.Encode()
 
 	pr := PositionRatios{}
-	dec := json.NewDecoder(rsp.Body)
-	if err = dec.Decode(&pr); err != nil {
+	if err = getAndDecode(c, u.String(), &pr); err != nil {
 		return nil, err
 	}
 	return &pr, nil
@@ -195,11 +182,11 @@ func (s Spreads) String() string {
 // See http://developer.oanda.com/docs/v1/forex-labs/#spreads for further information.
 func (c *Client) Spreads(instrument string, period Period, unique bool) (*Spreads, error) {
 	instrument = strings.ToUpper(instrument)
-	req, err := c.NewRequest("GET", "/labs/v1/spreads", nil)
+	u, err := url.Parse("/labs/v1/spreads")
 	if err != nil {
 		return nil, err
 	}
-	q := req.URL.Query()
+	q := u.Query()
 	q.Set("instrument", instrument)
 	q.Set("period", strconv.Itoa(int(period)))
 	if unique {
@@ -207,17 +194,10 @@ func (c *Client) Spreads(instrument string, period Period, unique bool) (*Spread
 	} else {
 		q.Set("unique", "0")
 	}
-	req.URL.RawQuery = q.Encode()
-
-	rsp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer closeResponse(rsp.Body)
+	u.RawQuery = q.Encode()
 
 	s := Spreads{}
-	dec := json.NewDecoder(rsp.Body)
-	if err = dec.Decode(&s); err != nil {
+	if err = getAndDecode(c, u.String(), &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -249,25 +229,19 @@ func (c CommitmentsOfTraders) String() string {
 // Tuesday's open interest.
 func (c *Client) CommitmentsOfTraders(instrument string) ([]CommitmentsOfTraders, error) {
 	instrument = strings.ToUpper(instrument)
-	req, err := c.NewRequest("GET", "/labs/v1/commitments_of_traders", nil)
+	u, err := url.Parse("/labs/v1/commitments_of_traders")
 	if err != nil {
 		return nil, err
 	}
-	q := req.URL.Query()
+	q := u.Query()
 	q.Set("instrument", instrument)
-	req.URL.RawQuery = q.Encode()
-
-	rsp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer closeResponse(rsp.Body)
+	u.RawQuery = q.Encode()
 
 	m := make(map[string][]CommitmentsOfTraders)
-	dec := json.NewDecoder(rsp.Body)
-	if err = dec.Decode(&m); err != nil {
+	if err = requestAndDecode(c, "GET", u.String(), nil, &m); err != nil {
 		return nil, err
 	}
+
 	cot, ok := m[instrument]
 	if !ok {
 		return nil, fmt.Errorf("No CommitmentsOfTraders found for instrument %s", instrument)
@@ -348,24 +322,18 @@ func (obs *OrderBooks) UnmarshalJSON(data []byte) error {
 // See http://developer.oanda.com/docs/v1/forex-labs/#orderbook for further information.
 func (c *Client) OrderBooks(instrument string, period Period) (OrderBooks, error) {
 	instrument = strings.ToUpper(instrument)
-	req, err := c.NewRequest("GET", "/labs/v1/orderbook_data", nil)
+
+	u, err := url.Parse("/labs/v1/orderbook_data")
 	if err != nil {
 		return nil, err
 	}
-	q := req.URL.Query()
+	q := u.Query()
 	q.Set("instrument", instrument)
 	q.Set("period", strconv.Itoa(int(period)))
-	req.URL.RawQuery = q.Encode()
-
-	rsp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer closeResponse(rsp.Body)
+	u.RawQuery = q.Encode()
 
 	obs := make(OrderBooks, 0)
-	dec := json.NewDecoder(rsp.Body)
-	if err = dec.Decode(&obs); err != nil {
+	if err = getAndDecode(c, u.String(), &obs); err != nil {
 		return nil, err
 	}
 	obs.Sort()
