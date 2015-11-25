@@ -280,6 +280,7 @@ func getAndDecode(c *Client, urlStr string, v interface{}) error {
 
 func closeResponse(rc io.ReadCloser) {
 	io.Copy(ioutil.Discard, rc)
+	rc.Close()
 }
 
 func requestAndDecode(c *Client, method, urlStr string, data url.Values, v interface{}) error {
