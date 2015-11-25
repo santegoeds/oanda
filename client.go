@@ -141,7 +141,7 @@ func NewFxTradeClient(token string) (*Client, error) {
 }
 
 // NewSandboxClient returns a client instance that connects to Oanda's fxsandbox environment. Creating a
-// client will create a user in the sandbox environment with wich all further calls with be authenticated.
+// client will create a user in the sandbox environment with which all further calls with be authenticated.
 //
 // See http://developer.oanda.com/docs/v1/auth/ for further information.
 func NewSandboxClient() (*Client, error) {
