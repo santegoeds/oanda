@@ -294,8 +294,10 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 	}
 
 	if c.Debug == "trace" {
-		fmt.Fprintln(os.Stderr, req)
-		fmt.Fprintln(os.Stderr, data)
+		fmt.Fprintln(os.Stderr, "Request: ", req)
+		if len(data) > 0 {
+			fmt.Fprintln(os.Stderr, "Request data: ", data)
+		}
 	}
 
 	rsp, err := c.Do(req)
@@ -306,7 +308,7 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 
 	var body io.Reader = rsp.Body
 	if c.Debug == "trace" {
-		fmt.Println(os.Stderr, rsp)
+		fmt.Fprintln(os.Stderr, "Response: ", rsp)
 		body = io.TeeReader(body, os.Stderr)
 	}
 
