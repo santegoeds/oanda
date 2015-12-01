@@ -1,6 +1,7 @@
 # OANDA for Go
 
 [![Build Status](https://travis-ci.org/santegoeds/oanda.svg?branch=master)](https://travis-ci.org/santegoeds/oanda)
+[![Coverage Status](https://coveralls.io/repos/santegoeds/oanda/badge.svg?branch=master&service=github)](https://coveralls.io/github/santegoeds/oanda?branch=master)
 
 OANDA for Go is a library to access the [OANDA REST API](http://developer.oanda.com) from open source programming language [Go](http://www.golang.org).
 
