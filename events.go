@@ -39,7 +39,7 @@ func (td *evtTradeDetail) Pl() float64       { return td.content.Pl }
 func (td *evtTradeDetail) Interest() float64 { return td.content.Interest }
 
 type evtHeaderContent struct {
-	TranId    int    `json:"id"`
+	TranId    uint64 `json:"id"`
 	AccountId int    `json:"accountId"`
 	Time      Time   `json:"time"`
 	Type      string `json:"type"`
@@ -74,13 +74,13 @@ type evtBody struct {
 }
 
 type Event interface {
-	TranId() int
+	TranId() uint64
 	AccountId() int
 	Time() Time
 	Type() string
 }
 
-func (t *evtHeader) TranId() int    { return t.content.TranId }
+func (t *evtHeader) TranId() uint64 { return t.content.TranId }
 func (t *evtHeader) AccountId() int { return t.content.AccountId }
 func (t *evtHeader) Time() Time     { return t.content.Time }
 func (t *evtHeader) Type() string   { return t.content.Type }
@@ -385,7 +385,7 @@ func (c *Client) PollEvents(args ...EventsArg) ([]Event, error) {
 }
 
 // PollEvent returns data for a single event.
-func (c *Client) PollEvent(tranId int) (Event, error) {
+func (c *Client) PollEvent(tranId uint64) (Event, error) {
 	evtData := struct {
 		evtHeaderContent
 		evtBody
@@ -541,6 +541,10 @@ func (es *EventServer) handleHeartbeats(hbC <-chan Time) {
 
 func (es *EventServer) handleMessages(msgC <-chan StreamMessage) {
 	for msg := range msgC {
+		// FIXME: id is already a maxed out int 32, for type:SET_MARGIN_RATE.
+		fmt.Println(msg)
+		// StreamMessage{transaction, {"id":4294967295,"accountId":XXXX,"time":"1456149472000000","type":"SET_MARGIN_RATE","marginRate":0.05}}
+
 		rawEvent := struct {
 			*evtHeaderContent
 			*evtBody
