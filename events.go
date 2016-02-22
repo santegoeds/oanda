@@ -25,7 +25,7 @@ import (
 // Events
 
 type evtTradeDetailData struct {
-	TradeId  int     `json:"id"`
+	TradeId  Id      `json:"id"`
 	Units    int     `json:"units"`
 	Pl       float64 `json:"pl"`
 	Interest float64 `json:"interest"`
@@ -33,14 +33,14 @@ type evtTradeDetailData struct {
 
 type evtTradeDetail struct{ content *evtTradeDetailData }
 
-func (td *evtTradeDetail) TradeId() int      { return td.content.TradeId }
+func (td *evtTradeDetail) TradeId() Id       { return td.content.TradeId }
 func (td *evtTradeDetail) Units() int        { return td.content.Units }
 func (td *evtTradeDetail) Pl() float64       { return td.content.Pl }
 func (td *evtTradeDetail) Interest() float64 { return td.content.Interest }
 
 type evtHeaderContent struct {
-	TranId    int    `json:"id"`
-	AccountId int    `json:"accountId"`
+	TranId    Id     `json:"id"`
+	AccountId Id     `json:"accountId"`
 	Time      Time   `json:"time"`
 	Type      string `json:"type"`
 }
@@ -66,24 +66,24 @@ type evtBody struct {
 	AccountBalance           float64             `json:"accountBalance"`
 	Rate                     float64             `json:"rate"`
 	Amount                   float64             `json:"amount"`
-	TradeId                  int                 `json:"tradeId"`
-	OrderId                  int                 `json:"orderId"`
+	TradeId                  Id                  `json:"tradeId"`
+	OrderId                  Id                  `json:"orderId"`
 	TradeOpened              *evtTradeDetailData `json:"tradeOpened"`
 	TradeReduced             *evtTradeDetailData `json:"tradeReduced"`
 	HomeCurrency             string              `json:"homeCurrency"`
 }
 
 type Event interface {
-	TranId() int
-	AccountId() int
+	TranId() Id
+	AccountId() Id
 	Time() Time
 	Type() string
 }
 
-func (t *evtHeader) TranId() int    { return t.content.TranId }
-func (t *evtHeader) AccountId() int { return t.content.AccountId }
-func (t *evtHeader) Time() Time     { return t.content.Time }
-func (t *evtHeader) Type() string   { return t.content.Type }
+func (t *evtHeader) TranId() Id    { return t.content.TranId }
+func (t *evtHeader) AccountId() Id { return t.content.AccountId }
+func (t *evtHeader) Time() Time    { return t.content.Time }
+func (t *evtHeader) Type() string  { return t.content.Type }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (t *evtHeader) UnmarshalJSON(data []byte) (err error) {
@@ -198,7 +198,7 @@ type OrderCancelEvent struct {
 	body *evtBody
 }
 
-func (t *OrderCancelEvent) OrderId() int   { return t.body.OrderId }
+func (t *OrderCancelEvent) OrderId() Id    { return t.body.OrderId }
 func (t *OrderCancelEvent) Reason() string { return t.body.Reason }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +210,7 @@ type OrderFilledEvent struct {
 	body *evtBody
 }
 
-func (t *OrderFilledEvent) OrderId() int { return t.body.OrderId }
+func (t *OrderFilledEvent) OrderId() Id { return t.body.OrderId }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRADE_UPDATE
@@ -224,7 +224,7 @@ type TradeUpdateEvent struct {
 func (t *TradeUpdateEvent) Instrument() string               { return t.body.Instrument }
 func (t *TradeUpdateEvent) Units() int                       { return t.body.Units }
 func (t *TradeUpdateEvent) Side() string                     { return t.body.Side }
-func (t *TradeUpdateEvent) TradeId() int                     { return t.body.TradeId }
+func (t *TradeUpdateEvent) TradeId() Id                      { return t.body.TradeId }
 func (t *TradeUpdateEvent) TakeProfitPrice() float64         { return t.body.TakeProfitPrice }
 func (t *TradeUpdateEvent) StopLossPrice() float64           { return t.body.StopLossPrice }
 func (t *TradeUpdateEvent) TailingStopLossDistance() float64 { return t.body.TrailingStopLossDistance }
@@ -247,7 +247,7 @@ func (t *TradeCloseEvent) Price() float64          { return t.body.Price }
 func (t *TradeCloseEvent) Pl() float64             { return t.body.Pl }
 func (t *TradeCloseEvent) Interest() float64       { return t.body.Interest }
 func (t *TradeCloseEvent) AccountBalance() float64 { return t.body.AccountBalance }
-func (t *TradeCloseEvent) TradeId() int            { return t.body.TradeId }
+func (t *TradeCloseEvent) TradeId() Id             { return t.body.TradeId }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MIGRATE_TRADE_OPEN
@@ -318,7 +318,7 @@ func (t *FeeEvent) AccountBalance() float64 { return t.body.AccountBalance }
 func (t *FeeEvent) Reason() string          { return t.body.Reason }
 
 type (
-	MinId int
+	MinId Id
 )
 
 // EventsArg is an optional argument for method PollEvents.
@@ -327,11 +327,11 @@ type EventsArg interface {
 }
 
 func (mi MaxId) applyEventsArg(v url.Values) {
-	optionalArgs(v).SetInt("maxId", int(mi))
+	optionalArgs(v).SetId("maxId", Id(mi))
 }
 
 func (mi MinId) applyEventsArg(v url.Values) {
-	optionalArgs(v).SetInt("minId", int(mi))
+	optionalArgs(v).SetId("minId", Id(mi))
 }
 
 func (c Count) applyEventsArg(v url.Values) {
@@ -343,7 +343,7 @@ func (i Instrument) applyEventsArg(v url.Values) {
 }
 
 func (ids Ids) applyEventsArg(v url.Values) {
-	optionalArgs(v).SetIntArray("ids", []int(ids))
+	optionalArgs(v).SetIdArray("ids", ids)
 }
 
 // PollEvents returns an array of events. Optional arguments are MaxId, MinId, Count,
@@ -385,7 +385,7 @@ func (c *Client) PollEvents(args ...EventsArg) ([]Event, error) {
 }
 
 // PollEvent returns data for a single event.
-func (c *Client) PollEvent(tranId int) (Event, error) {
+func (c *Client) PollEvent(tranId Id) (Event, error) {
 	evtData := struct {
 		evtHeaderContent
 		evtBody
@@ -465,7 +465,7 @@ type EventServer struct {
 }
 
 type (
-	EventHandlerFunc func(int, Event)
+	EventHandlerFunc func(Id, Event)
 )
 
 // NewEventServer returns an server instance for receiving events for the specified accountId(s).
@@ -473,7 +473,7 @@ type (
 // environment requires that at least one accountId is provided.
 //
 // See http://developer.oanda.com/docs/v1/stream/#events-streaming for further information.
-func (c *Client) NewEventServer(accountId ...int) (*EventServer, error) {
+func (c *Client) NewEventServer(accountId ...Id) (*EventServer, error) {
 	req, err := c.NewRequest("GET", "/v1/events", nil)
 	if err != nil {
 		return nil, err
@@ -481,7 +481,7 @@ func (c *Client) NewEventServer(accountId ...int) (*EventServer, error) {
 	useStreamHost(req)
 
 	q := req.URL.Query()
-	optionalArgs(q).SetIntArray("accountIds", accountId)
+	optionalArgs(q).SetIdArray("accountIds", accountId)
 	req.URL.RawQuery = q.Encode()
 
 	es := &EventServer{
@@ -578,34 +578,34 @@ func (es *EventServer) handleMessages(msgC <-chan StreamMessage) {
 
 type eventChans struct {
 	mtx sync.RWMutex
-	m   map[int]chan Event
+	m   map[Id]chan Event
 }
 
-func (ec *eventChans) AccountIds() []int {
+func (ec *eventChans) AccountIds() Ids {
 	ec.mtx.RLock()
 	defer ec.mtx.RUnlock()
-	accIds := make([]int, len(ec.m))
+	accIds := make(Ids, len(ec.m))
 	for accId := range ec.m {
 		accIds = append(accIds, accId)
 	}
 	return accIds
 }
 
-func (ec *eventChans) Set(accountId int, ch chan Event) {
+func (ec *eventChans) Set(accountId Id, ch chan Event) {
 	ec.mtx.Lock()
 	defer ec.mtx.Unlock()
 	ec.m[accountId] = ch
 }
 
-func (ec *eventChans) Get(accountId int) (chan Event, bool) {
+func (ec *eventChans) Get(accountId Id) (chan Event, bool) {
 	ec.mtx.RLock()
 	defer ec.mtx.RUnlock()
 	ch, ok := ec.m[accountId]
 	return ch, ok
 }
 
-func newEventChans(accountIds []int) *eventChans {
-	m := make(map[int]chan Event, len(accountIds))
+func newEventChans(accountIds Ids) *eventChans {
+	m := make(map[Id]chan Event, len(accountIds))
 	for _, accId := range accountIds {
 		m[accId] = nil
 	}

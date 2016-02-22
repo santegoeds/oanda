@@ -20,7 +20,7 @@ import (
 )
 
 type (
-	Ids []int
+	Ids []Id
 )
 
 type Position struct {

@@ -37,7 +37,7 @@ const (
 )
 
 type Order struct {
-	OrderId        int     `json:"id"`
+	OrderId        Id      `json:"id"`
 	Units          int     `json:"units"`
 	Instrument     string  `json:"instrument"`
 	Side           string  `json:"side"`
@@ -151,7 +151,7 @@ func (c *Client) NewOrder(orderType OrderType, side TradeSide, units int, instru
 }
 
 // Order returns information about an existing order.
-func (c *Client) Order(orderId int) (*Order, error) {
+func (c *Client) Order(orderId Id) (*Order, error) {
 	o := Order{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
 	if err := getAndDecode(c, urlStr, &o); err != nil {
@@ -161,7 +161,7 @@ func (c *Client) Order(orderId int) (*Order, error) {
 }
 
 // MaxId is an optional argument for Client methods Events(), Orders() and Trades().
-type MaxId int
+type MaxId Id
 
 // Count is an optional argument for Client methods Events(), Orders(), /MidpriceCandles(),
 // BidAskCandles() and Trades().
@@ -177,7 +177,7 @@ type OrdersArg interface {
 }
 
 func (mi MaxId) applyOrdersArg(v url.Values) {
-	optionalArgs(v).SetInt("maxId", int(mi))
+	optionalArgs(v).SetId("maxId", Id(mi))
 }
 
 func (cnt Count) applyOrdersArg(v url.Values) {
@@ -261,7 +261,7 @@ func (ts TrailingStop) applyModifyOrderArg(v url.Values) {
 
 // ModifyOrder updates an open order. Supported arguments are Units(), Price(), Expiry(),
 // UpperBound(), StopLoss(), TakeProfit() and TrailingStop().
-func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrderArg) (*Order, error) {
+func (c *Client) ModifyOrder(orderId Id, arg ModifyOrderArg, args ...ModifyOrderArg) (*Order, error) {
 	data := url.Values{}
 	arg.applyModifyOrderArg(data)
 	for _, arg = range args {
@@ -276,7 +276,7 @@ func (c *Client) ModifyOrder(orderId int, arg ModifyOrderArg, args ...ModifyOrde
 }
 
 type CancelOrderResponse struct {
-	TransactionId int     `json:"id"`
+	TransactionId Id      `json:"id"`
 	Instrument    string  `json:"instrument"`
 	Units         int     `json:"units"`
 	Side          string  `json:"side"`
@@ -285,7 +285,7 @@ type CancelOrderResponse struct {
 }
 
 // CancelOrder closes an open order.
-func (c *Client) CancelOrder(orderId int) (*CancelOrderResponse, error) {
+func (c *Client) CancelOrder(orderId Id) (*CancelOrderResponse, error) {
 	urlStr := fmt.Sprintf("/v1/accounts/%d/orders/%d", c.accountId, orderId)
 	cor := CancelOrderResponse{}
 	if err := requestAndDecode(c, "DELETE", urlStr, nil, &cor); err != nil {

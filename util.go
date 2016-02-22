@@ -28,27 +28,35 @@ func (oa optionalArgs) SetInt(k string, n int) {
 	url.Values(oa).Set(k, strconv.Itoa(n))
 }
 
+func (oa optionalArgs) SetInt64(k string, n int64) {
+	url.Values(oa).Set(k, strconv.FormatInt(n, 10))
+}
+
+func (oa optionalArgs) SetId(k string, id Id) {
+	url.Values(oa).Set(k, strconv.FormatUint(uint64(id), 10))
+}
+
 func (oa optionalArgs) SetFloat(k string, f float64) {
 	url.Values(oa).Set(k, strconv.FormatFloat(f, 'f', -1, 64))
 }
 
-func (oa optionalArgs) SetIntArray(k string, ia []int) {
+func (oa optionalArgs) SetIdArray(k string, ia []Id) {
 	switch n := len(ia); {
 	case n == 0:
 		return
 	case n == 1:
-		url.Values(oa).Set(k, strconv.Itoa(ia[0]))
+		url.Values(oa).Set(k, strconv.FormatUint(uint64(ia[0]), 10))
 	default:
 		strIds := make([]string, n)
 		for i, v := range ia {
-			strIds[i] = strconv.Itoa(v)
+			strIds[i] = strconv.FormatUint(uint64(v), 10)
 		}
 		url.Values(oa).Set("ids", strings.Join(strIds, ","))
 	}
 }
 
 func (oa optionalArgs) SetTime(k string, t time.Time) {
-	oa.SetInt(k, int(t.UTC().Unix()))
+	oa.SetInt64(k, t.UTC().Unix())
 }
 
 func (oa optionalArgs) SetStringer(k string, v fmt.Stringer) {

@@ -168,7 +168,7 @@ func (c *Client) NewPriceServer(instrs ...string) (*PriceServer, error) {
 	u := req.URL
 	q := u.Query()
 	q.Set("instruments", strings.Join(instrs, ","))
-	q.Set("accountId", strconv.Itoa(c.accountId))
+	q.Set("accountId", strconv.FormatUint(uint64(c.accountId), 10))
 	u.RawQuery = q.Encode()
 
 	ps := PriceServer{
