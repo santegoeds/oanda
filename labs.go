@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-type Period uint64
+type Period int64
 
 const (
 	Hour  Period = Period(time.Hour)
