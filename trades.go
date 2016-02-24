@@ -54,7 +54,7 @@ func (c Count) applyTradesArg(v url.Values) {
 }
 
 func (mi MaxId) applyTradesArg(v url.Values) {
-	optionalArgs(v).SetInt("maxId", int(mi))
+	optionalArgs(v).SetId("maxId", Id(mi))
 }
 
 func (i Instrument) applyTradesArg(v url.Values) {
@@ -62,7 +62,7 @@ func (i Instrument) applyTradesArg(v url.Values) {
 }
 
 func (ids Ids) applyTradesArg(v url.Values) {
-	optionalArgs(v).SetIntArray("ids", []int(ids))
+	optionalArgs(v).SetIdArray("ids", ids)
 }
 
 type ModifyTradeArg interface {
@@ -83,7 +83,7 @@ func (ts TrailingStop) applyModifyTradeArg(v url.Values) {
 
 // Trade represents an open Oanda trade.
 type Trade struct {
-	TradeId        int     `json:"id"`
+	TradeId        Id      `json:"id"`
 	Units          int     `json:"units"`
 	Instrument     string  `json:"instrument"`
 	Side           string  `json:"side"`
@@ -153,7 +153,7 @@ func (c *Client) NewTrade(side TradeSide, units int, instrument string,
 }
 
 // Trade returns an open trade.
-func (c *Client) Trade(tradeId int) (*Trade, error) {
+func (c *Client) Trade(tradeId Id) (*Trade, error) {
 	t := Trade{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
 	if err := getAndDecode(c, urlStr, &t); err != nil {
@@ -190,7 +190,7 @@ func (c *Client) Trades(args ...TradesArg) (Trades, error) {
 
 // ModifyTrade modifies an open trade.  Supported optional arguments are StopLoss(),
 // TakeProfit(), TrailingStop()
-func (c *Client) ModifyTrade(tradeId int, arg ModifyTradeArg, args ...ModifyTradeArg) (*Trade, error) {
+func (c *Client) ModifyTrade(tradeId Id, arg ModifyTradeArg, args ...ModifyTradeArg) (*Trade, error) {
 	data := url.Values{}
 	arg.applyModifyTradeArg(data)
 	for _, arg := range args {
@@ -206,7 +206,7 @@ func (c *Client) ModifyTrade(tradeId int, arg ModifyTradeArg, args ...ModifyTrad
 }
 
 type CloseTradeResponse struct {
-	TransactionId int     `json:"id"`
+	TransactionId Id      `json:"id"`
 	Price         float64 `json:"price"`
 	Instrument    string  `json:"instrument"`
 	Profit        float64 `json:"profit"`
@@ -215,7 +215,7 @@ type CloseTradeResponse struct {
 }
 
 // CloseTrade closes an open trade.
-func (c *Client) CloseTrade(tradeId int) (*CloseTradeResponse, error) {
+func (c *Client) CloseTrade(tradeId Id) (*CloseTradeResponse, error) {
 	ctr := CloseTradeResponse{}
 	urlStr := fmt.Sprintf("/v1/accounts/%d/trades/%d", c.accountId, tradeId)
 	if err := requestAndDecode(c, "DELETE", urlStr, nil, &ctr); err != nil {

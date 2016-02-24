@@ -60,9 +60,9 @@ func (s *OandaSuite) SetUpAccount(c *check.C) {
 		return
 	}
 
-	accountId, err := strconv.Atoi(accountIdStr)
+	accountId, err := strconv.ParseUint(accountIdStr, 10, 64)
 	c.Assert(err, check.IsNil)
-	s.Client.SelectAccount(accountId)
+	s.Client.SelectAccount(oanda.Id(accountId))
 
 	CancelAllOrders(c, s.Client)
 	CloseAllPositions(c, s.Client)

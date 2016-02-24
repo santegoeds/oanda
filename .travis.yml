@@ -1,7 +1,8 @@
+---
 sudo: true
 language: go
 go:
-  - tip
+  - 1.6
 before_install:
   - go get gopkg.in/check.v1
   - go get github.com/axw/gocov/gocov
@@ -14,3 +15,6 @@ env:
     - secure: RsNugq1R2VlLqa8hZzcccagr+4D6fMeoxt2T7YK4nzSiFA3zkw0IwCDO9oMSuDHcVrmuPVUJIi8QUsGNOzp0uffuSNtc8RLIXRZuGbeb0v8joSSdYyDXB2O6RrW6gipmq8JGgBm4KOp+QFLw1VH4ilPfZ/gHsyMA171TVjicyAc=
     - secure: fez1vY/E4LqBuv9nTh9yCV7qpZzEWR4bs8k9PHDtYN5meDs3fEyYjhnm9i0EWEamF1xMPdgrXW5MaX9xpmsm5PrwWJysjtt23khcvXi2fwlj/shoZSzVGXbZvD/LHU7gdhrf7TvyUUA0Xi+ae5T9oTOtmiZJXSN2RWtPce9mN1A=
     - secure: UiFsHee25eZKWDHRYNr/v5Igis+qcsiC/Lss8txGbR0RDTWHDZqqmuBzuVRTVMl68YU4OE++ZI4Dm/DpSuMicuVwqDHXPpcg+4fW3KKY47xndtdczbUDI/fAK9IYBl1Z6t4HBIbCFaKZGT63ma0+KjIp3WrdlE0UHlSI2Aigi60=
+  matrix:
+    - GIMME_ARCH=amd64
+    - GIMME_ARCH=386

@@ -97,7 +97,7 @@ func (ts *TestEventSuite) TestEventServer(c *check.C) {
 
 	wg.Add(1)
 	go func() {
-		err := es.ConnectAndHandle(func(accountId int, evt oanda.Event) {
+		err := es.ConnectAndHandle(func(accountId oanda.Id, evt oanda.Event) {
 			c.Log(accountId, evt)
 
 			es.Stop()

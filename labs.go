@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-type Period int
+type Period int64
 
 const (
 	Hour  Period = Period(time.Hour)
@@ -505,7 +505,7 @@ func (d AutochartistSignalData) String() string {
 
 type AutochartistSignal struct {
 	Meta       AutochartistSignalMeta `json:"meta"`
-	Id         int                    `json:"id"`
+	Id         Id                     `json:"id"`
 	Instrument string                 `json:"instrument"`
 	Type       string                 `json:"type"`
 	Data       AutochartistSignalData `json:"data"`

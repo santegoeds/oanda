@@ -97,7 +97,7 @@ func (c *Client) Instruments(instruments []string, fields []InstrumentField) (ma
 		q.Set("fields", strings.Join(ss, ","))
 	}
 	if c.accountId != 0 {
-		q.Set("accountId", strconv.Itoa(c.accountId))
+		q.Set("accountId", strconv.FormatUint(uint64(c.accountId), 10))
 	}
 	u.RawQuery = q.Encode()
 

@@ -50,6 +50,8 @@ var (
 	}
 )
 
+type Id uint64
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // RequestModifiers
 
@@ -111,12 +113,12 @@ func (c ContentType) modify(req *http.Request) {
 
 type Client struct {
 	reqMods   []requestModifier
-	accountId int
+	accountId Id
 	Debug     string
 	*http.Client
 }
 
-func (c *Client) AccountId() int { return c.accountId }
+func (c *Client) AccountId() Id { return c.accountId }
 
 // NewFxPracticeClient returns a client instance that connects to Oanda's fxpractice environment. String
 // token should be set to the generated personal access token.
@@ -173,7 +175,7 @@ func NewClient(environment string, token string, httpClient *http.Client) (*Clie
 
 // SelectAccount configures an Oanda account.  All trades and orders will be booked under the
 // selected account.   Use AccountId 0 to disable account selection.
-func (c *Client) SelectAccount(accountId int) {
+func (c *Client) SelectAccount(accountId Id) {
 	c.accountId = accountId
 }
 
