@@ -402,7 +402,7 @@ func asEvent(header *evtHeaderContent, body *evtBody) (Event, error) {
 	case "CREATE":
 		return &AccountCreateEvent{evtHeader{header}, body}, nil
 	case "MARKET_ORDER_CREATE":
-		return &TradeCloseEvent{evtHeader{header}, body}, nil
+		return &TradeCreateEvent{evtHeader{header}, body}, nil
 	case "LIMIT_ORDER_CREATE", "STOP_ORDER_CREATE", "MARKET_IF_TOUCHED_CREATE":
 		return &OrderCreateEvent{evtHeader{header}, body}, nil
 	case "ORDER_UPDATE":
