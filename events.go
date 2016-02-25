@@ -64,7 +64,7 @@ type evtBody struct {
 	Pl                       float64             `json:"pl"`
 	Interest                 float64             `json:"interest"`
 	AccountBalance           float64             `json:"accountBalance"`
-	Rate                     float64             `json:"rate"`
+	MarginRate               float64             `json:"marginRate"`
 	Amount                   float64             `json:"amount"`
 	TradeId                  Id                  `json:"tradeId"`
 	OrderId                  Id                  `json:"orderId"`
@@ -280,7 +280,7 @@ type SetMarginRateEvent struct {
 	body *evtBody
 }
 
-func (t *SetMarginRateEvent) Rate() float64 { return t.body.Rate }
+func (t *SetMarginRateEvent) MarginRate() float64 { return t.body.MarginRate }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // TRANSFER_FUNDS
