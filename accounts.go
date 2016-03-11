@@ -26,7 +26,7 @@ type Account struct {
 	UnrealizedPl    float64  `json:"unrealizedPl"`
 	RealizedPl      float64  `json:"realizedPl"`
 	MarginUsed      float64  `json:"marginUsed"`
-	MarginAvailable float64  `json:"marginAvailable"`
+	MarginAvailable float64  `json:"marginAvail"`
 	OpenTrades      int      `json:"openTrades"`
 	OpenOrders      int      `json:"openOrders"`
 	Currency        string   `json:"accountCurrency"`
