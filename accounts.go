@@ -20,7 +20,7 @@ import (
 
 // Account represents an Oanda account.
 type Account struct {
-	AccountId       int      `json:"accountId"`
+	AccountId       Id       `json:"accountId"`
 	Name            string   `json:"accountName"`
 	Balance         float64  `json:"balance"`
 	UnrealizedPl    float64  `json:"unrealizedPl"`
@@ -53,7 +53,7 @@ func (c *Client) Accounts() ([]Account, error) {
 
 // Account queries the Oanda servers for account information for the specified accountId
 // and returns a new Account instance.
-func (c *Client) Account(accountId int) (*Account, error) {
+func (c *Client) Account(accountId Id) (*Account, error) {
 	acc := Account{}
 	if err := getAndDecode(c, fmt.Sprintf("/v1/accounts/%d", accountId), &acc); err != nil {
 		return nil, err
