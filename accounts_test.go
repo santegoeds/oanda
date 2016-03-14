@@ -46,4 +46,8 @@ func (ts *TestAccountSuite) TestAccountApi(c *check.C) {
 	c.Assert(acc.AccountId, check.Not(check.Equals), 0)
 	c.Assert(acc.Name, check.Equals, accs[idx].Name)
 	c.Assert(acc.Currency, check.Equals, accs[idx].Currency)
+	c.Assert(acc.Balance > 0, check.Equals, true)
+	c.Assert(acc.MarginAvailable > 0, check.Equals, true)
+	c.Assert(acc.MarginRate > 0, check.Equals, true)
+	c.Assert(acc.MarginUsed, check.Equals, 0.0)
 }
