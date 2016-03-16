@@ -469,8 +469,7 @@ type (
 )
 
 // NewEventServer returns an server instance for receiving events for the specified accountId(s).
-// If no accountId is specified events for all accountIds are received.  Note that the sandbox
-// environment requires that at least one accountId is provided.
+// If no accountId is specified events for all accountIds are received.
 //
 // See http://developer.oanda.com/docs/v1/stream/#events-streaming for further information.
 func (c *Client) NewEventServer(accountId ...Id) (*EventServer, error) {

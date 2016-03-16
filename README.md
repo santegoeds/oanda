@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-    client, err := oanda.NewSandboxClient()
+    client, err := oanda.NewFxPracticeClient("<OANDA-TOKEN>"")
     if err != nil {
         panic(err)
     }
