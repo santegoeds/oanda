@@ -81,12 +81,7 @@ type Environment string
 
 func (e Environment) modify(req *http.Request) {
 	u := req.URL
-	envStr := string(e)
-	if envStr == "sandbox" {
-		u.Scheme = "http"
-	} else {
-		u.Scheme = "https"
-	}
+	u.Scheme = "https"
 	if u.Host == "" {
 		u.Host = "api-" + string(e) + ".oanda.com"
 	}
@@ -142,14 +137,6 @@ func NewFxTradeClient(token string) (*Client, error) {
 	return NewClient("fxtrade", token, nil)
 }
 
-// NewSandboxClient returns a client instance that connects to Oanda's fxsandbox environment. Creating a
-// client will create a user in the sandbox environment with which all further calls with be authenticated.
-//
-// See http://developer.oanda.com/docs/v1/auth/ for further information.
-func NewSandboxClient() (*Client, error) {
-	return NewClient("sandbox", "", nil)
-}
-
 func NewClient(environment string, token string, httpClient *http.Client) (*Client, error) {
 	if httpClient == nil {
 		httpClient = DefaultHttpClient
@@ -160,14 +147,6 @@ func NewClient(environment string, token string, httpClient *http.Client) (*Clie
 		return newClient(httpClient, Environment("fxpractice"), TokenAuthenticator(token)), nil
 	case "fxtrade":
 		return newClient(httpClient, Environment("fxtrade"), TokenAuthenticator(token)), nil
-	case "sandbox":
-		c := newClient(httpClient, Environment("sandbox"))
-		if userName, err := initSandboxAccount(c); err != nil {
-			return nil, err
-		} else {
-			c.reqMods = append(c.reqMods, UsernameAuthenticator(userName))
-		}
-		return c, nil
 	}
 
 	return nil, fmt.Errorf("Invalid Oanda environment %v", environment)
@@ -245,19 +224,6 @@ func newClient(httpClient *http.Client, reqMod ...requestModifier) *Client {
 	}
 	c.reqMods = append(c.reqMods, reqMod...)
 	return &c
-}
-
-// initSandboxAccount creates a new test account in the sandbox environment.
-func initSandboxAccount(c *Client) (string, error) {
-	v := struct {
-		Username  string `json:"username"`
-		Password  string `json:"password"`
-		AccountId int    `json:"accountId"`
-	}{}
-	if err := requestAndDecode(c, "POST", "/v1/accounts", nil, &v); err != nil {
-		return "", err
-	}
-	return v.Username, nil
 }
 
 type returnCodeChecker interface {
