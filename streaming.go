@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	defaultBufferSize   = 5
-	defaultStallTimeout = 10 * time.Second
-	maxDelay            = 5 * time.Minute
+	defaultBufferSize = 5
+	maxDelay          = 5 * time.Minute
 )
 
 type (
@@ -121,20 +120,22 @@ func (ss StreamServer) HandleHeartbeats(hbC <-chan Time) {
 // messageServer
 
 type messageServer struct {
-	sh     StreamHandler
-	c      *Client
-	mtx    sync.Mutex
-	req    *http.Request
-	runFlg bool
+	sh           StreamHandler
+	c            *Client
+	mtx          sync.Mutex
+	req          *http.Request
+	runFlg       bool
+	stallTimeout time.Duration
 }
 
 // newMessageServer returns a new instance of messageServer that forwards each message and
 // heartbeat to the specified StreamHandler.
-func (c *Client) newMessageServer(req *http.Request, sh StreamHandler) (*messageServer, error) {
+func (c *Client) newMessageServer(req *http.Request, sh StreamHandler, stallTimeout time.Duration) (*messageServer, error) {
 	s := messageServer{
-		sh:  sh,
-		c:   c,
-		req: req,
+		sh:           sh,
+		c:            c,
+		req:          req,
+		stallTimeout: stallTimeout,
 	}
 	return &s, nil
 }
@@ -206,7 +207,7 @@ func (s *messageServer) readMessages() error {
 					_, ok := err.(*ApiError)
 					runFlg = !ok
 				} else {
-					rdr = NewTimedReader(rsp.Body, defaultStallTimeout)
+					rdr = NewTimedReader(rsp.Body, s.stallTimeout)
 				}
 			}
 			s.mtx.Unlock()

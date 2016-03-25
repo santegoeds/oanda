@@ -180,7 +180,7 @@ func (c *Client) NewPriceServer(instrs ...string) (*PriceServer, error) {
 		handleHeartbeatsFn: ps.handleHeartbeats,
 	}
 
-	if srv, err := c.newMessageServer(req, &streamSrv); err != nil {
+	if srv, err := c.newMessageServer(req, &streamSrv, time.Second*10); err != nil {
 		return nil, err
 	} else {
 		ps.srv = srv
