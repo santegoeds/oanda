@@ -67,16 +67,6 @@ func (a TokenAuthenticator) modify(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+string(a))
 }
 
-// A UsernameAuthenticator adds a username to a request header.
-type UsernameAuthenticator string
-
-func (a UsernameAuthenticator) modify(req *http.Request) {
-	u := req.URL
-	q := u.Query()
-	q.Set("username", string(a))
-	u.RawQuery = q.Encode()
-}
-
 type Environment string
 
 func (e Environment) modify(req *http.Request) {
