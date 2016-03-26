@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -492,7 +493,7 @@ func (c *Client) NewEventServer(accountId ...Id) (*EventServer, error) {
 		handleHeartbeatsFn: es.handleHeartbeats,
 	}
 
-	if s, err := c.newMessageServer(req, streamSrv); err != nil {
+	if s, err := c.newMessageServer(req, streamSrv, time.Second*20); err != nil {
 		return nil, err
 	} else {
 		es.srv = s
