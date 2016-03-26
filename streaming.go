@@ -41,16 +41,24 @@ type (
 
 type TimedReader struct {
 	Timeout time.Duration
-	io.ReadCloser
-	timer *time.Timer
+	rdr     io.Reader
+	closeFn func() error
+	timer   *time.Timer
 }
 
 // NewTimedReader returns an instance of TimedReader where Read operations time out.
-func NewTimedReader(r io.ReadCloser, timeout time.Duration) *TimedReader {
-	return &TimedReader{
-		Timeout:    timeout,
-		ReadCloser: r,
+func NewTimedReader(rc io.ReadCloser, timeout time.Duration) *TimedReader {
+	tr := &TimedReader{
+		Timeout: timeout,
+		closeFn: func() error { return rc.Close() },
+		rdr:     rc,
 	}
+
+	if Debug == "trace" {
+		tr.rdr = trace(rc)
+	}
+
+	return tr
 }
 
 func (r *TimedReader) Read(p []byte) (int, error) {
@@ -59,9 +67,13 @@ func (r *TimedReader) Read(p []byte) (int, error) {
 	} else {
 		r.timer.Reset(r.Timeout)
 	}
-	n, err := r.ReadCloser.Read(p)
+	n, err := r.rdr.Read(p)
 	r.timer.Stop()
 	return n, err
+}
+
+func (r *TimedReader) Close() error {
+	return r.closeFn()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,6 +193,7 @@ func (s *messageServer) readMessages() error {
 	go s.sh.HandleMessages(msgC)
 
 	newResponse := func() (*http.Response, error) {
+		debug("connecting to %s...\n", s.req.URL.Host)
 		rsp, err := s.c.Do(s.req)
 		if err != nil {
 			return nil, err

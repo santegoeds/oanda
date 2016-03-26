@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
@@ -34,6 +33,7 @@ const (
 )
 
 var (
+	Debug             = ""
 	DefaultHttpClient = &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -99,7 +99,6 @@ func (c ContentType) modify(req *http.Request) {
 type Client struct {
 	reqMods   []requestModifier
 	accountId Id
-	Debug     string
 	*http.Client
 }
 
@@ -251,12 +250,8 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 		return err
 	}
 
-	if c.Debug == "trace" {
-		fmt.Fprintln(os.Stderr, "Request: ", req)
-		if len(data) > 0 {
-			fmt.Fprintln(os.Stderr, "Request data: ", data)
-		}
-	}
+	debug("request %v\n", req)
+	debug("request data %v\n", data)
 
 	rsp, err := c.Do(req)
 	if err != nil {
@@ -264,10 +259,11 @@ func requestAndDecode(c *Client, method, urlStr string, data url.Values, v inter
 	}
 	defer closeResponse(rsp.Body)
 
+	debug("response %v", rsp)
+
 	var body io.Reader = rsp.Body
-	if c.Debug == "trace" {
-		fmt.Fprintln(os.Stderr, "Response: ", rsp)
-		body = io.TeeReader(body, os.Stderr)
+	if Debug == "trace" {
+		body = trace(rsp.Body)
 	}
 
 	dec := json.NewDecoder(body)
