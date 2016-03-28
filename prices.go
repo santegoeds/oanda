@@ -17,6 +17,8 @@ package oanda
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +34,11 @@ type PriceTick struct {
 	Bid    float64 `json:"bid"`
 	Ask    float64 `json:"ask"`
 	Status string  `json:"status"`
+}
+
+//
+func (p PriceTick) String() string {
+	return fmt.Sprintf("{Time: %v, Bid: %v, Ask: %v, Status: %v}", p.Time, p.Bid, p.Ask, p.Status)
 }
 
 // Spread returns the difference between Ask and Bid prices.
@@ -201,16 +208,17 @@ func (ps *PriceServer) Stop() {
 }
 
 func (ps *PriceServer) initServer(handleFn TickHandlerFunc) {
+	handleTicks := func(tickC <-chan *instrumentTick) {
+		for tick := range tickC {
+			handleFn(tick.Instrument, tick.PriceTick)
+			tickPool.Put(tick)
+		}
+	}
+
 	for _, instr := range ps.chanMap.Instruments() {
 		tickC := make(chan *instrumentTick, defaultBufferSize)
 		ps.chanMap.Set(instr, tickC)
-
-		go func(lclC <-chan *instrumentTick) {
-			for tick := range lclC {
-				handleFn(tick.Instrument, tick.PriceTick)
-				tickPool.Put(tick)
-			}
-		}(tickC)
+		go handleTicks(tickC)
 	}
 }
 
@@ -223,25 +231,28 @@ func (ps *PriceServer) handleHeartbeats(hbC <-chan Time) {
 }
 
 func (ps *PriceServer) handleMessages(msgC <-chan StreamMessage) {
+	closeTickChannels := func() {
+		for _, instr := range ps.chanMap.Instruments() {
+			tickC, ok := ps.chanMap.Get(instr)
+			if ok && tickC != nil {
+				ps.chanMap.Set(instr, nil)
+				close(tickC)
+			}
+		}
+	}
+	defer closeTickChannels()
+
 	for msg := range msgC {
 		tick := tickPool.Get().(*instrumentTick)
 		if err := json.Unmarshal(msg.RawMessage, tick); err != nil {
-			ps.Stop()
-			return
+			log.Printf("failed to unnarshal message %v", msg)
+			continue
 		}
 		tickC, ok := ps.chanMap.Get(tick.Instrument)
 		if !ok {
-			// FIXME: Log error "unexpected instrument"
+			log.Printf("unexpected instrument %v", tick.Instrument)
 		} else if tickC != nil {
 			tickC <- tick
-		}
-	}
-
-	for _, instr := range ps.chanMap.Instruments() {
-		tickC, ok := ps.chanMap.Get(instr)
-		if ok && tickC != nil {
-			ps.chanMap.Set(instr, nil)
-			close(tickC)
 		}
 	}
 }
