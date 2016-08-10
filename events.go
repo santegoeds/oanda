@@ -97,6 +97,26 @@ func (t evtHeader) String() string {
 		t.TranId(), t.AccountId(), t.Type())
 }
 
+// EventFromJSON returns an OANDA Event object given JSON input.
+func EventFromJSON(data []byte) (Event, error) {
+	rawEvent := struct {
+		*evtHeaderContent
+		*evtBody
+	}{}
+
+	if err := json.Unmarshal(data, &rawEvent); err != nil {
+		return nil, err
+	}
+
+	evt, err := asEvent(rawEvent.evtHeaderContent, rawEvent.evtBody)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return evt, nil
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CREATE
 
@@ -541,19 +561,12 @@ func (es *EventServer) handleHeartbeats(hbC <-chan Time) {
 
 func (es *EventServer) handleMessages(msgC <-chan StreamMessage) {
 	for msg := range msgC {
-		rawEvent := struct {
-			*evtHeaderContent
-			*evtBody
-		}{}
-		if err := json.Unmarshal(msg.RawMessage, &rawEvent); err != nil {
-			// FIXME: log message
-			return
-		}
-		evt, err := asEvent(rawEvent.evtHeaderContent, rawEvent.evtBody)
+		evt, err := EventFromJSON(msg.RawMessage)
 		if err != nil {
 			// FIXME: Log error
 			return
 		}
+
 		evtC, ok := es.chanMap.Get(evt.AccountId())
 		if !ok {
 			// FIXME: log error "unexpected accountId"
